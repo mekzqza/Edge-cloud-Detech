@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edge Cloud Detech — เครื่องบวกเลข</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d29;
+      --border: #2a2f40;
+      --text: #e6e9f0;
+      --muted: #8b91a7;
+      --accent: #4f8cff;
+      --accent-hover: #3a7bff;
+      --error: #ff5c5c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      width: min(420px, 90vw);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 1.4rem;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .expr {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .expr .plus {
+      font-size: 1.6rem;
+      color: var(--muted);
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 1.1rem;
+      text-align: center;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+    }
+
+    input[type="number"]:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: white;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.6; cursor: default; }
+
+    .result {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 1.5rem;
+      min-height: 1.5em;
+    }
+
+    .result.error {
+      color: var(--error);
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>เครื่องบวกเลข</h1>
+    <p class="subtitle">edge-cloud-detech.sukpat.dev</p>
+
+    <div class="expr">
+      <input type="number" id="a" value="1" />
+      <span class="plus">+</span>
+      <input type="number" id="b" value="1" />
+    </div>
+
+    <button id="calc">คำนวณ</button>
+
+    <div class="result" id="result"></div>
+  </div>
+
+  <script>
+    const btn = document.getElementById("calc");
+    const resultEl = document.getElementById("result");
+
+    btn.addEventListener("click", async () => {
+      const a = Number(document.getElementById("a").value);
+      const b = Number(document.getElementById("b").value);
+
+      resultEl.className = "result";
+      resultEl.textContent = "";
+      btn.disabled = true;
+
+      try {
+        const res = await fetch("/api/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ a, b }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          resultEl.className = "result error";
+          resultEl.textContent = data.error || "เกิดข้อผิดพลาด";
+          return;
+        }
+
+        resultEl.textContent = `${data.a} + ${data.b} = ${data.result}`;
+      } catch (err) {
+        resultEl.className = "result error";
+        resultEl.textContent = "เชื่อมต่อ backend ไม่ได้";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

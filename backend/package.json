@@ -1,0 +1,12 @@
+{
+  "name": "edge-cloud-detech-backend",
+  "version": "1.0.0",
+  "description": "Demo backend: add two numbers",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
