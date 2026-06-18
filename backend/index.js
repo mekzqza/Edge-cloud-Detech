@@ -14,6 +14,8 @@ app.post("/api/add", (req, res) => {
     return res.status(400).json({ error: "a และ b ต้องเป็นตัวเลขทั้งคู่" });
   }
 
+  Consloe.log(`Received addition request: ${a} + ${b}`);
+
   return res.json({ a, b, result: a + b });
 });
 
