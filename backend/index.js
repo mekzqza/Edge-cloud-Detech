@@ -15,6 +15,7 @@ app.post("/api/add", (req, res) => {
   }
 
   console.log(`Received addition request: ${a} + ${b}`);
+  console.log(`Message: ${req.body.message}`);
 
   return res.json({ a, b, result: a + b });
 });
