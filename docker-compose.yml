@@ -21,6 +21,9 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    environment:
+      # host = "db" คือชื่อ service ข้างบน (ไม่ใช่ localhost)
+      DATABASE_URL: postgresql://myuser:mypassword@db:5432/appdb
     depends_on:
       db:
         condition: service_healthy
