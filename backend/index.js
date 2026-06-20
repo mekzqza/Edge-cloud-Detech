@@ -1,62 +1,21 @@
 const express = require("express");
 const path = require("path");
-const { Pool } = require("pg");
+const { initDb } = require("./src/db");
 
 const app = express();
 const PORT = 3000;
 
-// ต่อ Postgres: อ่านที่อยู่จาก env (ตั้งใน docker-compose.yml)
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
-async function initDb() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS notes (
-      id    SERIAL PRIMARY KEY,
-      text  TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT now()
-    )
-  `);
-  console.log("DB ready");
-}
-
-app.use(express.json());
+app.use(express.json({ limit: "10mb" })); // limit สูงขึ้นเพราะรูป base64 ตัวใหญ่
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // เสิร์ฟรูปที่ Pi ส่งมา
 
-app.post("/api/add", (req, res) => {
-  const { a, b } = req.body;
+// routes — เพิ่ม feature ใหม่: สร้างไฟล์ใน src/routes/ แล้วมา mount ตรงนี้
+app.use("/api", require("./src/routes/add"));
+app.use("/api", require("./src/routes/notes"));
+app.use("/api", require("./src/routes/detections"));
+app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
-  if (typeof a !== "number" || typeof b !== "number") {
-    return res.status(400).json({ error: "a และ b ต้องเป็นตัวเลขทั้งคู่" });
-  }
-
-  console.log(`Received addition request: ${a} + ${b}`);
-
-  return res.json({ a, b, result: a + b });
-});
-
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
-});
-
-app.post("/api/notes", async (req, res) => {
-  const { text } = req.body;
-  if (typeof text !== "string" || text.trim() === "") {
-    return res.status(400).json({ error: "text ต้องเป็นข้อความ" });
-  }
-  const result = await pool.query(
-    "INSERT INTO notes (text) VALUES ($1) RETURNING *",
-    [text],
-  );
-  res.status(201).json(result.rows[0]); // ส่งแถวที่เพิ่งบันทึกกลับ
-});
-
-app.get("/api/notes", async (req, res) => {
-  const result = await pool.query("SELECT * FROM notes ORDER BY id DESC");
-  res.json(result.rows);
-});
-
+// รอ db พร้อมก่อน ค่อยเปิดรับ request
 initDb().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Backend listening on port ${PORT}`);
-  });
+  app.listen(PORT, () => console.log(`Backend listening on port ${PORT}`));
 });

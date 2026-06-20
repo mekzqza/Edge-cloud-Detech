@@ -24,6 +24,8 @@ services:
     environment:
       # host = "db" คือชื่อ service ข้างบน (ไม่ใช่ localhost)
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    volumes:
+      - uploads:/app/uploads   # เก็บรูปที่ Pi ส่งมา ให้รอด rebuild
     depends_on:
       db:
         condition: service_healthy
@@ -40,3 +42,4 @@ services:
 
 volumes:
   db_data:
+  uploads:
