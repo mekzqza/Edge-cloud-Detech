@@ -4,21 +4,22 @@
 .
 ├── docker-compose.yml     เปิดทุก service ด้วยคำสั่งเดียว
 ├── .env                   รหัส/ค่าจริง (ไม่ขึ้น git) — คัดลอกจาก .env.example
-├── nginx/                 reverse proxy: รับ request จากภายนอก → ส่งต่อ backend
-├── backend/               Node + Express + Postgres
+├── backend/               Node + Express + Postgres (API ที่ /api)
 │   ├── index.js           จุดเริ่ม: ต่อ middleware, mount routes, เปิดเซิร์ฟเวอร์
 │   └── src/
 │       ├── db.js          ท่อเชื่อม Postgres + สร้างตาราง
-│       └── routes/        1 ไฟล์ = 1 feature  (add.js, notes.js, ...)
-└── frontend/              React + TypeScript (Vite)
-    └── src/               App.tsx = หน้าจอ; เรียก backend ผ่าน /api
+│       └── routes/        1 ไฟล์ = 1 feature  (add.js, notes.js, detections.js)
+└── frontend/              React + TS (Vite) — Caddy build แล้วเสิร์ฟ + HTTPS อัตโนมัติ
+    ├── Dockerfile         build React → เสิร์ฟด้วย Caddy + ส่งต่อ /api,/uploads
+    ├── Caddyfile          ตั้งค่า Caddy (โดเมน + reverse proxy + TLS)
+    └── src/               App.tsx = หน้าจอ
 ```
 
 ## รัน
 
 ```bash
 cp .env.example .env          # ครั้งแรก: ตั้งรหัส db ใน .env
-docker compose up -d --build  # เปิด db + backend + nginx → http://localhost
+docker compose up -d --build  # เปิด db + backend + web → https://โดเมน (Caddy ขอ cert ให้เอง)
 ```
 
 Frontend ตอนพัฒนา (hot reload):

@@ -10,6 +10,9 @@ npm-debug.log*
 .env.*
 !.env.example
 
+# Cloudflare origin cert (ความลับ — วางบนเซิร์ฟเวอร์เอง ห้ามขึ้น git)
+certs/
+
 # OS / editor
 .DS_Store
 Thumbs.db

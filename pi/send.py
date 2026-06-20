@@ -4,7 +4,7 @@
 import base64
 import requests
 
-URL = "http://edge-cloud-detech.sukpat.dev/api/detections"
+URL = "https://edge-cloud-detech.sukpat.dev/api/detections"
 
 
 def send(image_path, label):

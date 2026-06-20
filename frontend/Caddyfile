@@ -1,0 +1,21 @@
+edge-cloud-detech.sukpat.dev {
+	# ใช้ Cloudflare Origin Certificate (ไม่ขอ Let's Encrypt เอง) — ไฟล์วางใน ./certs บนเซิร์ฟเวอร์
+	tls /etc/caddy/certs/origin.crt /etc/caddy/certs/origin.key
+
+	# API → backend (คงพาธเดิม ไม่ตัด /api)
+	handle /api/* {
+		reverse_proxy backend:3000
+	}
+
+	# รูปที่อัพโหลด → backend
+	handle /uploads/* {
+		reverse_proxy backend:3000
+	}
+
+	# ที่เหลือ = React (SPA): path ไหนไม่ใช่ไฟล์จริง → คืน index.html
+	handle {
+		root * /usr/share/caddy
+		try_files {path} /index.html
+		file_server
+	}
+}

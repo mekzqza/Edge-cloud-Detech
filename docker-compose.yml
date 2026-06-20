@@ -30,16 +30,19 @@ services:
       db:
         condition: service_healthy
 
-  nginx:
-    image: nginx:alpine
+  web:
+    build: ./frontend          # build React + เสิร์ฟด้วย Caddy (HTTPS อัตโนมัติ)
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - caddy_data:/data
+      - ./certs:/etc/caddy/certs:ro   # Cloudflare Origin Cert (cert+key วางบนเซิร์ฟเวอร์ ไม่ขึ้น git)
     depends_on:
       - backend
 
 volumes:
   db_data:
   uploads:
+  caddy_data:
