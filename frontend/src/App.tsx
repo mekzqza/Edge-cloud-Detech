@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-// โครงข้อมูล 1 รูป ที่ backend ส่งกลับมา (เหมือน type ใน Luau)
+// โครงข้อมูล 1 รูป ที่ backend ส่งกลับมา
 type Detection = {
   id: number;
   filename: string;
@@ -17,7 +17,13 @@ export default function App() {
   const [label, setLabel] = useState("");
   const [uploading, setUploading] = useState(false);
 
-  // โหลดรายการรูปตอนเปิดหน้า (รันครั้งเดียว)
+  // auth — เก็บ token/role ใน localStorage ให้รอด refresh
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem("token"));
+  const [role, setRole] = useState<string | null>(() => localStorage.getItem("role"));
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const isAdmin = role === "admin";
+
   useEffect(() => {
     loadDetections();
   }, []);
@@ -25,6 +31,29 @@ export default function App() {
   async function loadDetections() {
     const res = await fetch("/api/detections");
     setDetections(await res.json());
+  }
+
+  async function login() {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) return alert("login ไม่สำเร็จ");
+    const { token, role } = await res.json();
+    localStorage.setItem("token", token);
+    localStorage.setItem("role", role);
+    setToken(token);
+    setRole(role);
+    setUsername("");
+    setPassword("");
+  }
+
+  function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    setToken(null);
+    setRole(null);
   }
 
   async function upload() {
@@ -40,7 +69,7 @@ export default function App() {
       if (!res.ok) throw new Error();
       setFile(null);
       setLabel("");
-      await loadDetections(); // รีเฟรชแกลเลอรีให้เห็นรูปใหม่
+      await loadDetections();
     } catch {
       alert("อัพโหลดไม่สำเร็จ");
     } finally {
@@ -48,9 +77,58 @@ export default function App() {
     }
   }
 
+  async function remove(id: number) {
+    if (!confirm("ลบรูปนี้?")) return;
+    const res = await fetch(`/api/detections/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return alert("ลบไม่สำเร็จ");
+    await loadDetections();
+  }
+
+  // ponytail: แก้ไขด้วย prompt() — ลาซี่สุด, upgrade เป็น inline form ถ้าต้องแก้บ่อย
+  async function edit(d: Detection) {
+    const plate = prompt("ทะเบียน:", d.plate ?? "");
+    if (plate === null) return;
+    const province = prompt("จังหวัด:", d.province ?? "");
+    if (province === null) return;
+    const res = await fetch(`/api/detections/${d.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ plate, province }),
+    });
+    if (!res.ok) return alert("แก้ไขไม่สำเร็จ");
+    await loadDetections();
+  }
+
   return (
     <div className="container">
-      <h1>Edge Cloud Detech</h1>
+      <header className="topbar">
+        <h1>Edge Cloud Detech</h1>
+        {token ? (
+          <div className="auth">
+            <span className="muted">{role}</span>
+            <button onClick={logout}>ออกจากระบบ</button>
+          </div>
+        ) : (
+          <div className="auth">
+            <input
+              placeholder="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <input
+              type="password"
+              placeholder="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && login()}
+            />
+            <button onClick={login}>เข้าสู่ระบบ</button>
+          </div>
+        )}
+      </header>
 
       <section className="upload">
         <input
@@ -83,6 +161,14 @@ export default function App() {
                       d.confidence != null ? ` (${Math.round(d.confidence * 100)}%)` : ""
                     }`
                   : d.label || "—"}
+                {isAdmin && (
+                  <div className="actions">
+                    <button onClick={() => edit(d)}>แก้ไข</button>
+                    <button className="danger" onClick={() => remove(d.id)}>
+                      ลบ
+                    </button>
+                  </div>
+                )}
               </figcaption>
             </figure>
           ))}
@@ -92,7 +178,7 @@ export default function App() {
   );
 }
 
-// อ่านไฟล์รูป → base64 (ได้ "data:image/...;base64,xxx" — backend ตัด prefix ให้เอง)
+// อ่านไฟล์รูป → base64
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

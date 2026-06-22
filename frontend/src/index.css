@@ -79,6 +79,51 @@ button:disabled {
   color: var(--muted);
 }
 
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.auth {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.auth input {
+  padding: 8px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.actions button {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+button.danger {
+  background: #c0392b;
+}
+button.danger:hover {
+  background: #a93226;
+}
+
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

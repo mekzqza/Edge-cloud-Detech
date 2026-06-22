@@ -10,6 +10,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // เสิร์ฟรูปที่ Pi ส่งมา
 
 // routes — เพิ่ม feature ใหม่: สร้างไฟล์ใน src/routes/ แล้วมา mount ตรงนี้
+app.use("/api", require("./src/routes/auth"));
 app.use("/api", require("./src/routes/add"));
 app.use("/api", require("./src/routes/notes"));
 app.use("/api", require("./src/routes/detections"));

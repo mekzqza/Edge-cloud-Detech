@@ -1,4 +1,5 @@
 const { Pool } = require("pg");
+const { hashPassword } = require("./auth");
 
 // ท่อเชื่อม Postgres ใช้ร่วมกันทั้งแอป (อ่านที่อยู่จาก env ใน docker-compose)
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -23,6 +24,24 @@ async function initDb() {
       created_at TIMESTAMPTZ DEFAULT now()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id            SERIAL PRIMARY KEY,
+      username      TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role          TEXT NOT NULL DEFAULT 'user'   -- 'user' | 'admin'
+    )
+  `);
+
+  // seed admin จาก env ครั้งแรก (ถ้ายังไม่มี user ชื่อนี้) — เปลี่ยนรหัสผ่านทีหลังได้
+  const adminUser = process.env.ADMIN_USER || "admin";
+  const adminPass = process.env.ADMIN_PASSWORD || "admin1234";
+  await pool.query(
+    `INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'admin')
+     ON CONFLICT (username) DO NOTHING`,
+    [adminUser, hashPassword(adminPass)],
+  );
+
   console.log("DB ready");
 }
 

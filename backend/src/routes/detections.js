@@ -2,6 +2,7 @@ const { Router } = require("express");
 const fs = require("fs");
 const path = require("path");
 const { pool } = require("../db");
+const { requireAdmin } = require("../auth");
 
 const router = Router();
 
@@ -43,6 +44,36 @@ router.post("/detections", async (req, res) => {
 router.get("/detections", async (req, res) => {
   const result = await pool.query("SELECT * FROM detections ORDER BY id DESC");
   res.json(result.rows);
+});
+
+// แก้ไข label/plate/province (admin) — ส่งเฉพาะ field ที่อยากแก้
+router.patch("/detections/:id", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const fields = ["label", "plate", "province"].filter((f) => f in req.body);
+  if (!Number.isInteger(id) || fields.length === 0) {
+    return res.status(400).json({ error: "ระบุ id และอย่างน้อย 1 field (label/plate/province)" });
+  }
+  const set = fields.map((f, i) => `${f} = $${i + 1}`).join(", ");
+  const values = fields.map((f) => req.body[f]);
+  const { rows } = await pool.query(
+    `UPDATE detections SET ${set} WHERE id = $${fields.length + 1} RETURNING *`,
+    [...values, id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: "ไม่พบรูป" });
+  res.json(rows[0]);
+});
+
+// ลบรูป (admin) — ลบทั้ง row และไฟล์ในดิสก์
+router.delete("/detections/:id", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "id ไม่ถูกต้อง" });
+  const { rows } = await pool.query(
+    "DELETE FROM detections WHERE id = $1 RETURNING filename",
+    [id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: "ไม่พบรูป" });
+  fs.rmSync(path.join(UPLOAD_DIR, rows[0].filename), { force: true }); // ไม่มีไฟล์ก็ไม่ error
+  res.json({ ok: true });
 });
 
 module.exports = router;
