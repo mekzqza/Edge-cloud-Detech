@@ -1,0 +1,29 @@
+const { Pool } = require("pg");
+
+// ท่อเชื่อม Postgres ใช้ร่วมกันทั้งแอป (อ่านที่อยู่จาก env ใน docker-compose)
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// สร้างตารางตอนแอปเริ่ม — มีตารางใหม่ก็เพิ่ม CREATE TABLE ที่นี่
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notes (
+      id         SERIAL PRIMARY KEY,
+      text       TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS detections (
+      id         SERIAL PRIMARY KEY,
+      filename   TEXT NOT NULL,
+      plate      TEXT NOT NULL,           -- เลขทะเบียน
+      province   TEXT NOT NULL,           -- จังหวัด
+      confidence REAL NOT NULL,           -- ความแม่นยำ 0..1
+      captured_at TIMESTAMPTZ,            -- เวลาที่ Pi ถ่าย/ส่ง (Pi เป็นคนส่งมา)
+      created_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  console.log("DB ready");
+}
+
+module.exports = { pool, initDb };

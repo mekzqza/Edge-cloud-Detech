@@ -1,16 +1,48 @@
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     build: ./backend
     restart: unless-stopped
     expose:
       - "3000"
+    environment:
+      # host = "db" คือชื่อ service ข้างบน (ไม่ใช่ localhost)
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    volumes:
+      - uploads:/app/uploads   # เก็บรูปที่ Pi ส่งมา ให้รอด rebuild
+    depends_on:
+      db:
+        condition: service_healthy
 
-  nginx:
-    image: nginx:alpine
+  web:
+    build: ./frontend          # build React + เสิร์ฟด้วย Caddy (HTTPS อัตโนมัติ)
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - caddy_data:/data
+      - ./certs:/etc/caddy/certs:ro   # Cloudflare Origin Cert (cert+key วางบนเซิร์ฟเวอร์ ไม่ขึ้น git)
     depends_on:
       - backend
+
+volumes:
+  db_data:
+  uploads:
+  caddy_data:
