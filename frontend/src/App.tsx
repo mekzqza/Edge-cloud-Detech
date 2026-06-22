@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 type Detection = {
   id: number;
   filename: string;
-  label: string;
+  label: string | null;
   created_at: string;
+  plate: string | null;
+  province: string | null;
+  confidence: number | null;
 };
 
 export default function App() {
@@ -73,8 +76,14 @@ export default function App() {
         <div className="gallery">
           {detections.map((d) => (
             <figure key={d.id} className="item">
-              <img src={`/uploads/${d.filename}`} alt={d.label} />
-              <figcaption>{d.label || "—"}</figcaption>
+              <img src={`/uploads/${d.filename}`} alt={d.plate ?? d.label ?? ""} />
+              <figcaption>
+                {d.plate
+                  ? `${d.plate} · ${d.province ?? ""}${
+                      d.confidence != null ? ` (${Math.round(d.confidence * 100)}%)` : ""
+                    }`
+                  : d.label || "—"}
+              </figcaption>
             </figure>
           ))}
         </div>
