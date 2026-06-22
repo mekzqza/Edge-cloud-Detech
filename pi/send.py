@@ -7,13 +7,18 @@ import requests
 URL = "https://edge-cloud-detech.sukpat.dev/api/detections"
 
 
-def send(image_path, label):
+def send(image_path, plate, province, confidence):
     with open(image_path, "rb") as f:
         img_b64 = base64.b64encode(f.read()).decode()
-    res = requests.post(URL, json={"image": img_b64, "label": label})
+    res = requests.post(URL, json={
+        "image": img_b64,
+        "plate": plate,            # เลขทะเบียน
+        "province": province,      # จังหวัด
+        "confidence": confidence,  # ความแม่นยำ 0..1
+    })
     print(res.status_code, res.json())
 
 
 if __name__ == "__main__":
     # ถ่ายรูปก่อนด้วย:  libcamera-jpeg -o photo.jpg
-    send("photo.jpg", "พบวัตถุ")
+    send("photo.jpg", "1กข 1234", "กรุงเทพมหานคร", 0.97)

@@ -16,7 +16,9 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS detections (
       id         SERIAL PRIMARY KEY,
       filename   TEXT NOT NULL,
-      label      TEXT NOT NULL,
+      plate      TEXT NOT NULL,           -- เลขทะเบียน
+      province   TEXT NOT NULL,           -- จังหวัด
+      confidence REAL NOT NULL,           -- ความแม่นยำ 0..1
       created_at TIMESTAMPTZ DEFAULT now()
     )
   `);

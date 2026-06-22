@@ -9,11 +9,18 @@ const router = Router();
 const UPLOAD_DIR = path.join(__dirname, "../../uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-// Pi ส่งมา: { image: "<base64>", label: "ข้อความ" }
+// Pi ส่งมา: { image: "<base64>", plate, province, confidence }
 router.post("/detections", async (req, res) => {
-  const { image, label } = req.body;
-  if (typeof image !== "string" || typeof label !== "string") {
-    return res.status(400).json({ error: "ต้องมี image (base64) และ label" });
+  const { image, plate, province, confidence } = req.body;
+  if (
+    typeof image !== "string" ||
+    typeof plate !== "string" ||
+    typeof province !== "string" ||
+    typeof confidence !== "number"
+  ) {
+    return res
+      .status(400)
+      .json({ error: "ต้องมี image (base64), plate, province, confidence (ตัวเลข)" });
   }
 
   // เผื่อ Pi ส่งมาแบบมี prefix "data:image/jpeg;base64," ก็ตัดทิ้ง
@@ -22,8 +29,8 @@ router.post("/detections", async (req, res) => {
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(b64, "base64"));
 
   const result = await pool.query(
-    "INSERT INTO detections (filename, label) VALUES ($1, $2) RETURNING *",
-    [filename, label],
+    "INSERT INTO detections (filename, plate, province, confidence) VALUES ($1, $2, $3, $4) RETURNING *",
+    [filename, plate, province, confidence],
   );
   res.status(201).json(result.rows[0]);
 });
