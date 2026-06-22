@@ -2,6 +2,8 @@
 # ส่งรูป + ข้อความจาก Raspberry Pi ไปเว็บแอป
 # ติดตั้งครั้งเดียว:  pip install requests
 import base64
+from datetime import datetime, timezone
+
 import requests
 
 URL = "https://edge-cloud-detech.sukpat.dev/api/detections"
@@ -15,6 +17,8 @@ def send(image_path, plate, province, confidence):
         "plate": plate,            # เลขทะเบียน
         "province": province,      # จังหวัด
         "confidence": confidence,  # ความแม่นยำ 0..1
+        # เวลาที่ถ่าย/ส่ง — ISO8601 พร้อม timezone
+        "captured_at": datetime.now(timezone.utc).isoformat(),
     })
     print(res.status_code, res.json())
 

@@ -19,6 +19,7 @@ async function initDb() {
       plate      TEXT NOT NULL,           -- เลขทะเบียน
       province   TEXT NOT NULL,           -- จังหวัด
       confidence REAL NOT NULL,           -- ความแม่นยำ 0..1
+      captured_at TIMESTAMPTZ,            -- เวลาที่ Pi ถ่าย/ส่ง (Pi เป็นคนส่งมา)
       created_at TIMESTAMPTZ DEFAULT now()
     )
   `);

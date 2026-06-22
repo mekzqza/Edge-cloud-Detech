@@ -11,7 +11,7 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 // Pi ส่งมา: { image: "<base64>", plate, province, confidence }
 router.post("/detections", async (req, res) => {
-  const { image, plate, province, confidence } = req.body;
+  const { image, plate, province, confidence, captured_at } = req.body;
   if (
     typeof image !== "string" ||
     typeof plate !== "string" ||
@@ -22,6 +22,10 @@ router.post("/detections", async (req, res) => {
       .status(400)
       .json({ error: "ต้องมี image (base64), plate, province, confidence (ตัวเลข)" });
   }
+  // captured_at ไม่บังคับ — Pi ส่ง ISO string มา, ไม่ส่งก็เป็น null (Postgres รับ ISO8601 ตรงๆ)
+  if (captured_at != null && typeof captured_at !== "string") {
+    return res.status(400).json({ error: "captured_at ต้องเป็น ISO timestamp string" });
+  }
 
   // เผื่อ Pi ส่งมาแบบมี prefix "data:image/jpeg;base64," ก็ตัดทิ้ง
   const b64 = image.replace(/^data:.*;base64,/, "");
@@ -29,8 +33,8 @@ router.post("/detections", async (req, res) => {
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(b64, "base64"));
 
   const result = await pool.query(
-    "INSERT INTO detections (filename, plate, province, confidence) VALUES ($1, $2, $3, $4) RETURNING *",
-    [filename, plate, province, confidence],
+    "INSERT INTO detections (filename, plate, province, confidence, captured_at) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+    [filename, plate, province, confidence, captured_at ?? null],
   );
   res.status(201).json(result.rows[0]);
 });
