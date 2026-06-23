@@ -33,13 +33,17 @@ export default function App() {
     setDetections(await res.json());
   }
 
-  async function login() {
-    const res = await fetch("/api/login", {
+  // login กับ register ใช้ตัวเดียวกัน ต่างแค่ path — endpoint คืน { token, role } เหมือนกัน
+  async function auth(path: "login" | "register") {
+    const res = await fetch(`/api/${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-    if (!res.ok) return alert("login ไม่สำเร็จ");
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({}));
+      return alert(error || (path === "login" ? "login ไม่สำเร็จ" : "สมัครไม่สำเร็จ"));
+    }
     const { token, role } = await res.json();
     localStorage.setItem("token", token);
     localStorage.setItem("role", role);
@@ -123,9 +127,10 @@ export default function App() {
               placeholder="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && login()}
+              onKeyDown={(e) => e.key === "Enter" && auth("login")}
             />
-            <button onClick={login}>เข้าสู่ระบบ</button>
+            <button onClick={() => auth("login")}>เข้าสู่ระบบ</button>
+            <button onClick={() => auth("register")}>สมัครสมาชิก</button>
           </div>
         )}
       </header>
