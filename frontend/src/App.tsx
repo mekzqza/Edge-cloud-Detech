@@ -22,6 +22,8 @@ export default function App() {
   const [role, setRole] = useState<string | null>(() => localStorage.getItem("role"));
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [showRegister, setShowRegister] = useState(false); // true = อยู่หน้าสมัครสมาชิก
   const isAdmin = role === "admin";
 
   useEffect(() => {
@@ -35,6 +37,9 @@ export default function App() {
 
   // login กับ register ใช้ตัวเดียวกัน ต่างแค่ path — endpoint คืน { token, role } เหมือนกัน
   async function auth(path: "login" | "register") {
+    if (path === "register" && password !== confirmPw) {
+      return alert("รหัสผ่านยืนยันไม่ตรงกัน");
+    }
     const res = await fetch(`/api/${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -51,6 +56,8 @@ export default function App() {
     setRole(role);
     setUsername("");
     setPassword("");
+    setConfirmPw("");
+    setShowRegister(false);
   }
 
   function logout() {
@@ -106,6 +113,45 @@ export default function App() {
     await loadDetections();
   }
 
+  // หน้าสมัครสมาชิก — แยกออกมาเป็นหน้าเดี่ยว
+  if (showRegister) {
+    return (
+      <div className="container">
+        <div className="authpage">
+          <h1>สมัครสมาชิก</h1>
+          <input
+            placeholder="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="ยืนยันรหัสผ่าน"
+            value={confirmPw}
+            onChange={(e) => setConfirmPw(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && auth("register")}
+          />
+          <button onClick={() => auth("register")}>สมัครสมาชิก</button>
+          <button
+            className="link"
+            onClick={() => {
+              setShowRegister(false);
+              setConfirmPw("");
+            }}
+          >
+            กลับไปเข้าสู่ระบบ
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container">
       <header className="topbar">
@@ -130,7 +176,7 @@ export default function App() {
               onKeyDown={(e) => e.key === "Enter" && auth("login")}
             />
             <button onClick={() => auth("login")}>เข้าสู่ระบบ</button>
-            <button onClick={() => auth("register")}>สมัครสมาชิก</button>
+            <button onClick={() => setShowRegister(true)}>สมัครสมาชิก</button>
           </div>
         )}
       </header>
