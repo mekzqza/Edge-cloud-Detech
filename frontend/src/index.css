@@ -79,6 +79,83 @@ button:disabled {
   color: var(--muted);
 }
 
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.auth {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.auth input {
+  padding: 8px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.authpage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 320px;
+  margin: 64px auto 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.authpage input {
+  padding: 10px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+}
+
+button.link {
+  background: none;
+  color: var(--muted);
+  padding: 4px;
+  font-weight: 400;
+}
+button.link:hover {
+  background: none;
+  color: var(--text);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.actions button {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+button.danger {
+  background: #c0392b;
+}
+button.danger:hover {
+  background: #a93226;
+}
+
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
