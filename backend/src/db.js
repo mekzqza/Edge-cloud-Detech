@@ -26,10 +26,8 @@ async function initDb() {
     )
   `);
 
-  await pool.query(
-    `
-    ALERT TABLE detections ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT false`,
-  );
+  await pool.query(`
+    ALTER TABLE detections ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT false`);
 
   // seed admin จาก env ครั้งแรก (ถ้ายังไม่มี user ชื่อนี้) — เปลี่ยนรหัสผ่านทีหลังได้
   const adminUser = process.env.ADMIN_USER || "admin";
