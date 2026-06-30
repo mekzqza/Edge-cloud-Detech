@@ -17,6 +17,7 @@ async function initDb() {
       created_at TIMESTAMPTZ DEFAULT now()
     )
   `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id            SERIAL PRIMARY KEY,
@@ -25,6 +26,12 @@ async function initDb() {
       role          TEXT NOT NULL DEFAULT 'user'   -- 'user' | 'admin'
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS test (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL
+    )`);
 
   await pool.query(`
     ALTER TABLE detections ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT false`);
