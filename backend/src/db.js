@@ -7,13 +7,6 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // สร้างตารางตอนแอปเริ่ม — มีตารางใหม่ก็เพิ่ม CREATE TABLE ที่นี่
 async function initDb() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS notes (
-      id         SERIAL PRIMARY KEY,
-      text       TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT now()
-    )
-  `);
-  await pool.query(`
     CREATE TABLE IF NOT EXISTS detections (
       id         SERIAL PRIMARY KEY,
       filename   TEXT NOT NULL,
@@ -24,6 +17,7 @@ async function initDb() {
       created_at TIMESTAMPTZ DEFAULT now()
     )
   `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id            SERIAL PRIMARY KEY,
@@ -32,6 +26,15 @@ async function initDb() {
       role          TEXT NOT NULL DEFAULT 'user'   -- 'user' | 'admin'
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS test (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL
+    )`);
+
+  await pool.query(`
+    ALTER TABLE detections ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT false`);
 
   // seed admin จาก env ครั้งแรก (ถ้ายังไม่มี user ชื่อนี้) — เปลี่ยนรหัสผ่านทีหลังได้
   const adminUser = process.env.ADMIN_USER || "admin";
