@@ -6,8 +6,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,24 +22,24 @@ services:
     environment:
       # host = "db" คือชื่อ service ข้างบน (ไม่ใช่ localhost)
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      AUTH_SECRET: ${AUTH_SECRET}        # คีย์เซ็น token — ตั้งใน .env (สุ่มยาวๆ)
-      ADMIN_USER: ${ADMIN_USER}          # admin คนแรก seed ตอน db เริ่ม
+      AUTH_SECRET: ${AUTH_SECRET} # คีย์เซ็น token — ตั้งใน .env (สุ่มยาวๆ)
+      ADMIN_USER: ${ADMIN_USER} # admin คนแรก seed ตอน db เริ่ม
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     volumes:
-      - uploads:/app/uploads   # เก็บรูปที่ Pi ส่งมา ให้รอด rebuild
+      - uploads:/app/uploads # เก็บรูปที่ Pi ส่งมา ให้รอด rebuild
     depends_on:
       db:
         condition: service_healthy
 
   web:
-    build: ./frontend          # build React + เสิร์ฟด้วย Caddy (HTTPS อัตโนมัติ)
+    build: ./frontend # build React + เสิร์ฟด้วย Caddy (HTTPS อัตโนมัติ)
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - caddy_data:/data
-      - ./certs:/etc/caddy/certs:ro   # Cloudflare Origin Cert (cert+key วางบนเซิร์ฟเวอร์ ไม่ขึ้น git)
+      - ./certs:/etc/caddy/certs:ro # Cloudflare Origin Cert (cert+key วางบนเซิร์ฟเวอร์ ไม่ขึ้น git)
     depends_on:
       - backend
 
