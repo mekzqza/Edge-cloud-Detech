@@ -1,0 +1,37 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@theme {
+    /* พื้นผิว */
+    --color-surface: #ffffff;
+    --color-surface-muted: #f4f3ee;
+    --color-page: #ecebe3;
+    --color-border: #e4e2d9;
+
+    /* ตัวอักษร */
+    --color-ink: #1f1e1a;
+    --color-ink-muted: #6b6a62;
+    --color-ink-faint: #94938b;
+
+    /* สถานะ: สีเข้ม = ตัวอักษร/ไอคอน, -soft = พื้นหลังอ่อน */
+    --color-info: #185fa5;
+    --color-info-soft: #e6f1fb;
+    --color-success: #0f6e56;
+    --color-success-soft: #e1f5ee;
+    --color-warn: #854f0b;
+    --color-warn-soft: #faeeda;
+    --color-danger: #a32d2d;
+    --color-danger-soft: #fcebeb;
+
+    /* มุมโค้ง + ฟอนต์ */
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font-sans: "Noto Sans Thai", sans-serif;
+    --font-mono: "JetBrains Mono", monospace;
+}
+
+body {
+    background: var(--color-page);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+}
