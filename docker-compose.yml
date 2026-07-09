@@ -31,17 +31,31 @@ services:
       db:
         condition: service_healthy
 
+  frontend:
+    build: ./frontend # Next.js server (Caddy อยู่ข้างหน้า)
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET} # คีย์เซ็น session ของ NextAuth (ใช้ค่าเดียวกับ backend ได้)
+      AUTH_TRUST_HOST: "true" # อยู่หลัง reverse proxy — ให้เชื่อม host header จาก Caddy
+      BACKEND_URL: http://backend:3000 # authorize() ยิงตรงหา backend ในเครือข่าย compose
+    depends_on:
+      - backend
+
   web:
-    build: ./frontend # build React + เสิร์ฟด้วย Caddy (HTTPS อัตโนมัติ)
+    image: caddy:2-alpine # TLS + แยกทาง: /api/auth→frontend, /api,/uploads→backend, ที่เหลือ→frontend
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      - ./frontend/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - ./certs:/etc/caddy/certs:ro # Cloudflare Origin Cert (cert+key วางบนเซิร์ฟเวอร์ ไม่ขึ้น git)
     depends_on:
       - backend
+      - frontend
 
 volumes:
   db_data:
