@@ -22,11 +22,12 @@ router.post("/mytest", async (req, res) => {
 });
 
 router.delete("/mytest/:id", requireAdmin, async (req, res) => {
-  const { rows } = pool.query({
+  const { rows } = await pool.query({
     text: "DELETE FROM test WHERE id = $1 RETURNING id",
     values: [req.params.id],
   });
-  if (!res.rows[0]) {
+
+  if (!rows[0]) {
     return res.status(404).json({ error: "ไม่พบข้อมูลที่ต้องการลบ" });
   }
   res.status(200).json({ ok: true });
