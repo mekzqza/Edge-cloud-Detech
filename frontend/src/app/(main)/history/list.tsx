@@ -4,8 +4,20 @@ import { useEffect, useState } from "react";
 import type { Detection } from "@/types";
 
 // แกลเลอรีประวัติรถเข้า + ปุ่มแก้ไข/ลบสำหรับ admin (ย้ายมาจาก App.tsx เดิม)
-export default function HistoryList({ isAdmin, token }: { isAdmin: boolean; token: string }) {
+export default function HistoryList({
+  isAdmin,
+  token,
+}: {
+  isAdmin: boolean;
+  token: string;
+}) {
   const [detections, setDetections] = useState<Detection[]>([]);
+
+  const [q, setQ] = useState("");
+
+  const shown = detections.filter(
+    (d) => !q || d.plate?.includes(q) || d.province?.includes(q),
+  );
 
   useEffect(() => {
     load();
@@ -34,7 +46,10 @@ export default function HistoryList({ isAdmin, token }: { isAdmin: boolean; toke
     if (province === null) return;
     const res = await fetch(`/api/detections/${d.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ plate, province }),
     });
     if (!res.ok) return alert("แก้ไขไม่สำเร็จ");
@@ -43,12 +58,21 @@ export default function HistoryList({ isAdmin, token }: { isAdmin: boolean; toke
 
   return (
     <div>
-      <h1 className="text-lg font-medium">ประวัติรถเข้า ({detections.length})</h1>
+      <h1 className="text-lg font-medium">
+        ประวัติรถเข้า ({detections.length})
+      </h1>
+      <input
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="ค้นหาทะเบียน / จังหวัด"
+        className="mt-3 w-full max-w-xs rounded-md border border-border bg-surface px-3 py-2 text-sm"
+      />
       {detections.length === 0 ? (
         <p className="mt-4 text-sm text-ink-muted">ยังไม่มีรายการ</p>
       ) : (
         <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-          {detections.map((d) => (
+          {shown.map((d) => (
             <figure
               key={d.id}
               className="overflow-hidden rounded-lg border border-border bg-surface"
@@ -62,9 +86,15 @@ export default function HistoryList({ isAdmin, token }: { isAdmin: boolean; toke
                 {d.plate ? (
                   <>
                     <span className="font-mono">{d.plate}</span>
-                    <span className="text-ink-muted"> · {d.province ?? ""}</span>
+                    <span className="text-ink-muted">
+                      {" "}
+                      · {d.province ?? ""}
+                    </span>
                     {d.confidence != null && (
-                      <span className="text-ink-faint"> ({Math.round(d.confidence * 100)}%)</span>
+                      <span className="text-ink-faint">
+                        {" "}
+                        ({Math.round(d.confidence * 100)}%)
+                      </span>
                     )}
                   </>
                 ) : (
