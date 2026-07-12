@@ -21,6 +21,17 @@ router.post("/mytest", async (req, res) => {
   res.status(201).json(rows[0]);
 });
 
+router.get("/mytest/daily", async (req, res) => {
+  const { rows } = await pool.query(`
+    SELECT (COALESCE(captured_at, created_at) AT TIME ZONE 'Asia/Bangkok')::date AS day,
+           COUNT(*)::int AS count
+    FROM detections
+    GROUP BY day
+    ORDER BY day DESC
+  `);
+  res.json(rows); // [{ day: "2026-07-13", count: 42 }, ...]
+});
+
 router.delete("/mytest/:id", requireAdmin, async (req, res) => {
   const { rows } = await pool.query({
     text: "DELETE FROM test WHERE id = $1 RETURNING id",
