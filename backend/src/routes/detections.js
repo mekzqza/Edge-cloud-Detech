@@ -56,7 +56,7 @@ router.get("/detections/time/:hours", async (req, res) => {
   res.json(result.rows);
 });
 
-router.get("/api/detections/last/:count", async (req, res) => {
+router.get("/detections/last/:count", async (req, res) => {
   const count = Number(req.params.count);
   if (!Number.isInteger(count) || count <= 0) {
     return res.status(400).json({ error: "ระบุจำนวนเป็นตัวเลขบวก" });
