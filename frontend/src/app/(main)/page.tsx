@@ -18,15 +18,6 @@ export default function OverviewPage() {
     console.log("fetching detections in", hours, "hours");
   }
 
-  async function fetchLastDetection(count: number) {
-    const res = await fetch(`/api/detections/last/${count}`);
-    if (!res.ok) {
-      return null;
-    }
-    setLastDetection(await res.json());
-    console.log("fetching last detections", count);
-  }
-
   // ดึงข้อมูลกราฟตามช่วงวัน — ใช้ route /time/:hours ที่มีอยู่ (วัน × 24 ชม.)
   async function fetchChart(days: number) {
     const res = await fetch(`/api/detections/time/${days * 24}`);
@@ -38,7 +29,12 @@ export default function OverviewPage() {
   }
 
   useEffect(() => {
-    fetchLastDetection(4);
+    fetch("/api/detections")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setDetections);
+    fetch("/api/detections/last/4")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setLastDetection);
   }, []);
 
   useEffect(() => {
