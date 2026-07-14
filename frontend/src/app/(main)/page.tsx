@@ -18,16 +18,6 @@ export default function OverviewPage() {
     console.log("fetching detections in", hours, "hours");
   }
 
-  // ดึงข้อมูลกราฟตามช่วงวัน — ใช้ route /time/:hours ที่มีอยู่ (วัน × 24 ชม.)
-  async function fetchChart(days: number) {
-    const res = await fetch(`/api/detections/time/${days * 24}`);
-    if (!res.ok) {
-      setChartRows([]);
-      return;
-    }
-    setChartRows(await res.json());
-  }
-
   useEffect(() => {
     fetch("/api/detections")
       .then((res) => (res.ok ? res.json() : []))
