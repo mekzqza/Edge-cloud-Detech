@@ -56,6 +56,18 @@ router.get("/detections/time/:hours", async (req, res) => {
   res.json(result.rows);
 });
 
+router.get("/api/detections/last:count", async (req, res) => {
+  const count = Number(req.params.count);
+  if (!Number.isInteger(count) || count <= 0) {
+    return res.status(400).json({ error: "ระบุจำนวนเป็นตัวเลขบวก" });
+  }
+  const result = await pool.query(
+    "SELECT * FROM detections ORDER BY created_at DESC LIMIT $1",
+    [count],
+  );
+  res.json(result.rows);
+}
+
 router.patch("/detections/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const fields = ["label", "plate", "province"].filter((f) => f in req.body);
