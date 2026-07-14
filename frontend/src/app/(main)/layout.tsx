@@ -8,13 +8,19 @@ const nav = [
   { href: "/admin", label: "จัดการระบบ" },
 ];
 
-export default async function MainLayout({ children }: { children: React.ReactNode }) {
+export default async function MainLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await auth();
 
   return (
     <div className="flex min-h-screen">
       <aside className="flex w-56 flex-col border-r border-border bg-surface">
-        <div className="border-b border-border p-4 font-medium">Edge Cloud Detech</div>
+        <div className="border-b border-border p-4 font-medium">
+          Edge Cloud Detech
+        </div>
         <nav className="flex-1 space-y-1 p-3">
           {nav.map((n) => (
             <Link
