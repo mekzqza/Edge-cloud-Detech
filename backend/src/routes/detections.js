@@ -10,7 +10,6 @@ const router = Router();
 const UPLOAD_DIR = path.join(__dirname, "../../uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-// Pi ส่งมา: { image: "<base64>", plate, province, confidence }
 router.post("/detections", async (req, res) => {
   const { image, plate, province, confidence, captured_at } = req.body;
   if (
@@ -19,16 +18,16 @@ router.post("/detections", async (req, res) => {
     typeof province !== "string" ||
     typeof confidence !== "number"
   ) {
+    return res.status(400).json({
+      error: "ต้องมี image (base64), plate, province, confidence (ตัวเลข)",
+    });
+  }
+  if (captured_at != null && typeof captured_at !== "string") {
     return res
       .status(400)
-      .json({ error: "ต้องมี image (base64), plate, province, confidence (ตัวเลข)" });
-  }
-  // captured_at ไม่บังคับ — Pi ส่ง ISO string มา, ไม่ส่งก็เป็น null (Postgres รับ ISO8601 ตรงๆ)
-  if (captured_at != null && typeof captured_at !== "string") {
-    return res.status(400).json({ error: "captured_at ต้องเป็น ISO timestamp string" });
+      .json({ error: "captured_at ต้องเป็น ISO timestamp string" });
   }
 
-  // เผื่อ Pi ส่งมาแบบมี prefix "data:image/jpeg;base64," ก็ตัดทิ้ง
   const b64 = image.replace(/^data:.*;base64,/, "");
   const filename = `${Date.now()}.jpg`;
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(b64, "base64"));
@@ -40,18 +39,30 @@ router.post("/detections", async (req, res) => {
   res.status(201).json(result.rows[0]);
 });
 
-// ดึงรายการทั้งหมด (รูปดูได้ที่ /uploads/<filename>)
 router.get("/detections", async (req, res) => {
   const result = await pool.query("SELECT * FROM detections ORDER BY id DESC");
   res.json(result.rows);
 });
 
-// แก้ไข label/plate/province (admin) — ส่งเฉพาะ field ที่อยากแก้
+router.get("/detections/time/:hours", async (req, res) => {
+  const hours = Number(req.params.hours);
+  if (!Number.isInteger(hours) || hours <= 0) {
+    return res.status(400).json({ error: "ระบุจำนวนชั่วโมงเป็นตัวเลขบวก" });
+  }
+  const result = await pool.query(
+    "SELECT * FROM detections WHERE created_at >= NOW() - make_interval(hours => $1) ORDER BY created_at DESC",
+    [hours],
+  );
+  res.json(result.rows);
+});
+
 router.patch("/detections/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const fields = ["label", "plate", "province"].filter((f) => f in req.body);
   if (!Number.isInteger(id) || fields.length === 0) {
-    return res.status(400).json({ error: "ระบุ id และอย่างน้อย 1 field (label/plate/province)" });
+    return res
+      .status(400)
+      .json({ error: "ระบุ id และอย่างน้อย 1 field (label/plate/province)" });
   }
   const set = fields.map((f, i) => `${f} = $${i + 1}`).join(", ");
   const values = fields.map((f) => req.body[f]);
@@ -63,10 +74,10 @@ router.patch("/detections/:id", requireAdmin, async (req, res) => {
   res.json(rows[0]);
 });
 
-// ลบรูป (admin) — ลบทั้ง row และไฟล์ในดิสก์
 router.delete("/detections/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: "id ไม่ถูกต้อง" });
+  if (!Number.isInteger(id))
+    return res.status(400).json({ error: "id ไม่ถูกต้อง" });
   const { rows } = await pool.query(
     "DELETE FROM detections WHERE id = $1 RETURNING filename",
     [id],
