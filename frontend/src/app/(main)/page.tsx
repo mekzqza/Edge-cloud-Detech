@@ -38,7 +38,9 @@ export default function OverviewPage() {
   }, []);
 
   useEffect(() => {
-    fetchChart(range);
+    fetch(`/api/detections/time/${range * 24}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setChartRows);
   }, [range]);
 
   const today = new Date().toDateString();
