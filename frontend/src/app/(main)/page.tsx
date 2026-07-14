@@ -7,21 +7,15 @@ export default function OverviewPage() {
   const [detections, setDetections] = useState<Detection[] | null>(null);
   const [lastDetechtion, setLastDetection] = useState<Detection[] | null>(null);
   const [time, setTime] = useState<number>(24);
+  const [range, setRange] = useState<number>(1); // ช่วงกราฟ: 1/7/15/30 วัน
+  const [chartRows, setChartRows] = useState<Detection[] | null>(null);
 
-  // Fetch detections from the API for a specific time 1H/24H/1D
   async function detecTionIn(hours: number) {
     const res = await fetch(`/api/detections/time/${hours}`);
     if (!res.ok) {
       return [];
     }
     console.log("fetching detections in", hours, "hours");
-  }
-  async function fetchDetections() {
-    const res = await fetch(`/api/detections/`);
-    if (!res.ok) {
-      return [];
-    }
-    setDetections(await res.json());
   }
 
   async function fetchLastDetection(count: number) {
@@ -33,10 +27,23 @@ export default function OverviewPage() {
     console.log("fetching last detections", count);
   }
 
+  // ดึงข้อมูลกราฟตามช่วงวัน — ใช้ route /time/:hours ที่มีอยู่ (วัน × 24 ชม.)
+  async function fetchChart(days: number) {
+    const res = await fetch(`/api/detections/time/${days * 24}`);
+    if (!res.ok) {
+      setChartRows([]);
+      return;
+    }
+    setChartRows(await res.json());
+  }
+
   useEffect(() => {
-    fetchDetections();
     fetchLastDetection(4);
   }, []);
+
+  useEffect(() => {
+    fetchChart(range);
+  }, [range]);
 
   const today = new Date().toDateString();
   // ponytail: icon/tone เป็นแค่ของตกแต่ง — value/filter แก้ได้ตามสบาย
@@ -69,14 +76,34 @@ export default function OverviewPage() {
     },
   ];
 
-  const todayHours = (detections ?? [])
-    .filter((d) => new Date(d.created_at).toDateString() === today)
-    .map((d) => new Date(d.created_at).getHours());
-  const hourly = Array.from({ length: 24 }, (_, h) => ({
-    hour: h,
-    count: todayHours.filter((x) => x === h).length,
-  }));
-  const max = Math.max(1, ...hourly.map((h) => h.count));
+  // จัด bucket กราฟ: 1 วัน = รายชั่วโมง (เฉพาะวันนี้), หลายวัน = รายวัน
+  const rows = chartRows ?? [];
+  const buckets =
+    range === 1
+      ? Array.from({ length: 24 }, (_, h) => ({
+          label: `${h}:00`,
+          count: rows.filter(
+            (d) =>
+              new Date(d.created_at).toDateString() === today &&
+              new Date(d.created_at).getHours() === h,
+          ).length,
+        }))
+      : Array.from({ length: range }, (_, i) => {
+          const day = new Date();
+          day.setDate(day.getDate() - (range - 1 - i));
+          const key = day.toDateString();
+          return {
+            label: day.toLocaleDateString("th-TH", {
+              day: "numeric",
+              month: "short",
+            }),
+            count: rows.filter(
+              (d) => new Date(d.created_at).toDateString() === key,
+            ).length,
+          };
+        });
+  const max = Math.max(1, ...buckets.map((b) => b.count));
+  const labelStep = Math.ceil(buckets.length / 8);
 
   return (
     <div className="space-y-5">
@@ -116,28 +143,44 @@ export default function OverviewPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-border bg-surface p-4 lg:col-span-2">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-medium">รถเข้ารายชั่วโมง</h2>
-            <span className="text-sm text-ink-muted">วันนี้</span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-medium">
+              {range === 1 ? "รถเข้ารายชั่วโมง" : "รถเข้ารายวัน"}
+            </h2>
+            <div className="flex gap-1">
+              {[1, 7, 15, 30].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setRange(n)}
+                  className={`rounded-md px-2 py-1 text-xs transition-colors ${
+                    range === n
+                      ? "bg-surface-muted font-medium"
+                      : "text-ink-muted hover:bg-surface-muted"
+                  }`}
+                >
+                  {n === 1 ? "วันนี้" : `${n} วัน`}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="mt-4 flex h-40 items-end sm:h-48">
-            {hourly.map((h) => (
+            {buckets.map((b) => (
               <div
-                key={h.hour}
-                title={`${h.hour}:00 น. — ${h.count} คัน`}
+                key={b.label}
+                title={`${b.label} — ${b.count} คัน`}
                 className="flex h-full flex-1 items-end justify-center rounded transition-colors hover:bg-surface-muted"
               >
                 <div
                   className="w-2 rounded-t bg-success md:w-2.5"
-                  style={{ height: `${(h.count / max) * 100}%` }}
+                  style={{ height: `${(b.count / max) * 100}%` }}
                 />
               </div>
             ))}
           </div>
           <div className="mt-1 flex border-t border-border pt-1 text-[10px] text-ink-faint">
-            {hourly.map((h) => (
-              <div key={h.hour} className="flex-1 text-center">
-                {h.hour % 6 === 0 ? `${h.hour}:00` : ""}
+            {buckets.map((b, i) => (
+              <div key={b.label} className="flex-1 truncate text-center">
+                {i % labelStep === 0 ? b.label : ""}
               </div>
             ))}
           </div>
