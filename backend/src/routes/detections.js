@@ -66,7 +66,7 @@ router.get("/api/detections/last:count", async (req, res) => {
     [count],
   );
   res.json(result.rows);
-}
+});
 
 router.patch("/detections/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
