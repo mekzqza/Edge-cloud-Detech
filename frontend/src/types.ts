@@ -7,4 +7,5 @@ export type Detection = {
   plate: string | null;
   province: string | null;
   confidence: number | null;
+  verified: boolean | null;
 };
