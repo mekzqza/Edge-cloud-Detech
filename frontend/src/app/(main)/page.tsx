@@ -73,7 +73,12 @@ export default function OverviewPage() {
 
     {
       label: "อ่านไม่ได้",
-      value: detections?.filter((d) => !d.plate && !d.plate).length,
+      value: detections?.filter(
+        (d) =>
+          (!d.plate && !d.province) ||
+          d.plate == "UNKNOWN" ||
+          d.province == "UNKNOWN",
+      ).length,
       icon: <HelpIcon />,
       tone: "text-warn",
     },
