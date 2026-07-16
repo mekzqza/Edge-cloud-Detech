@@ -18,19 +18,35 @@ export default function OverviewPage() {
     console.log("fetching detections in", hours, "hours");
   }
 
+  async function fetchDetections() {
+    const res = await fetch("/api/detections");
+    setDetections(res.ok ? await res.json() : []);
+  }
+
+  async function fetchLastDetection(count: number) {
+    const res = await fetch(`/api/detections/last/${count}`);
+    if (!res.ok) {
+      return setLastDetection([]);
+    }
+    const data = await res.json();
+    setLastDetection(data);
+  }
+
+  // ดึงข้อมูลกราฟตามช่วงวัน — ใช้ route /time/:hours (วัน × 24 ชม.)
+  async function fetchChart(days: number) {
+    const res = await fetch(`/api/detections/time/${days * 24}`);
+    setChartRows(res.ok ? await res.json() : []);
+  }
+
   useEffect(() => {
-    fetch("/api/detections")
-      .then((res) => (res.ok ? res.json() : []))
-      .then(setDetections);
-    fetch("/api/detections/last/4")
-      .then((res) => (res.ok ? res.json() : []))
-      .then(setLastDetection);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchDetections();
+    fetchLastDetection(4);
   }, []);
 
   useEffect(() => {
-    fetch(`/api/detections/time/${range * 24}`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then(setChartRows);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchChart(range);
   }, [range]);
 
   const today = new Date().toDateString();
@@ -44,7 +60,7 @@ export default function OverviewPage() {
     },
     {
       label: "อ่านป้ายสำเร้จ",
-      value: detections?.filter((d) => d.plate && d.plate != "PENDING").length,
+      value: detections?.filter((d) => d.plate && d.plate != "UNKNOWN").length,
       icon: <BadgeCheckIcon />,
       tone: "",
     },
@@ -57,10 +73,17 @@ export default function OverviewPage() {
 
     {
       label: "อ่านไม่ได้",
-      value: detections?.filter((d) => (!d.plate && !d.plate) || "PENDING")
-        .length,
+      value: detections?.filter((d) => !d.plate && !d.plate).length,
       icon: <HelpIcon />,
       tone: "text-warn",
+    },
+    {
+      label: "อ่านได้บ้างส่วน",
+      value: detections?.filter(
+        (d) =>
+          (d.plate || d.province) &&
+          (d.plate != "UNKNOWN" || d.province != "UNKNOWN"),
+      ).length,
     },
   ];
 
