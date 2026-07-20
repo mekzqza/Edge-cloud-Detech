@@ -54,13 +54,22 @@ export default function OverviewPage() {
   const stats = [
     {
       label: "รถเข้าวันนี้",
-      value: detections?.filter((d) => d.plate && d.plate != "PENDING").length,
+      value: detections?.filter(
+        (d) => new Date(d.created_at).toDateString() === today,
+      ).length,
       icon: <CarIcon />,
       tone: "",
     },
     {
-      label: "อ่านป้ายสำเร้จ",
-      value: detections?.filter((d) => d.plate && d.plate != "UNKNOWN").length,
+      // อ่านออกทั้ง 2 ฟิลด์
+      label: "อ่านป้ายสำเร็จ",
+      value: detections?.filter(
+        (d) =>
+          d.plate &&
+          d.plate != "UNKNOWN" &&
+          d.province &&
+          d.province != "UNKNOWN",
+      ).length,
       icon: <BadgeCheckIcon />,
       tone: "",
     },
@@ -70,25 +79,31 @@ export default function OverviewPage() {
       icon: <AlertIcon />,
       tone: "text-danger",
     },
-
     {
+      // อ่านออกฟิลด์เดียว — ทะเบียนได้แต่จังหวัดไม่ได้ หรือกลับกัน
+      label: "อ่านได้บางส่วน",
+      value: detections?.filter(
+        (d) =>
+          (d.plate &&
+            d.plate != "UNKNOWN" &&
+            (!d.province || d.province == "UNKNOWN")) ||
+          (d.province &&
+            d.province != "UNKNOWN" &&
+            (!d.plate || d.plate == "UNKNOWN")),
+      ).length,
+      icon: <HelpIcon />,
+      tone: "",
+    },
+    {
+      // อ่านไม่ออกทั้ง 2 ฟิลด์
       label: "อ่านไม่ได้",
       value: detections?.filter(
         (d) =>
-          (!d.plate && !d.province) ||
-          d.plate == "UNKNOWN" ||
-          d.province == "UNKNOWN",
+          (!d.plate || d.plate == "UNKNOWN") &&
+          (!d.province || d.province == "UNKNOWN"),
       ).length,
       icon: <HelpIcon />,
       tone: "text-warn",
-    },
-    {
-      label: "อ่านได้บ้างส่วน",
-      value: detections?.filter(
-        (d) =>
-          (d.plate || d.province) &&
-          (d.plate != "UNKNOWN" || d.province != "UNKNOWN"),
-      ).length,
     },
   ];
 
@@ -140,7 +155,7 @@ export default function OverviewPage() {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5">
         {stats.map((s) => (
           <div
             key={s.label}
