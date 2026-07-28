@@ -10,7 +10,7 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS detections (
       id         SERIAL PRIMARY KEY,
       filename   TEXT NOT NULL,
-      plate      TEXT NOT NULL,           -- เลขทะเบียน
+      plate      TEXT NOT NULL,         v  -- เลขทะเบียน
       province   TEXT NOT NULL,           -- จังหวัด
       confidence REAL NOT NULL,           -- ความแม่นยำ 0..1
       captured_at TIMESTAMPTZ,            -- เวลาที่ Pi ถ่าย/ส่ง (Pi เป็นคนส่งมา)
@@ -35,6 +35,12 @@ async function initDb() {
 
   await pool.query(`
     ALTER TABLE detections ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT false`);
+
+  await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE`);
+
+  await pool.query(`
+      ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
 
   // seed admin จาก env ครั้งแรก (ถ้ายังไม่มี user ชื่อนี้) — เปลี่ยนรหัสผ่านทีหลังได้
   const adminUser = process.env.ADMIN_USER || "admin";
