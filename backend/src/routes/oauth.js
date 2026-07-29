@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const router = Router();
-const INTERNAL_SECRET = env.INTERNAL_SECRET; //
+const INTERNAL_SECRET = process.env.INTERNAL_SECRET;
 
 router.post("/oauth", async (req, res) => {
   const internalSecret = req.headers["x-internal-secret"];
