@@ -183,7 +183,8 @@ export default function RecordsList({
               </div>
 
               <figcaption className="px-3 pb-3">
-                <div className="-mt-5 flex justify-center">
+                {/* z-10: ป้ายเกยขอบล่างของรูป ถ้าไม่ยกชั้น รูป (position:relative) จะทับป้าย */}
+                <div className="relative z-10 -mt-5 flex justify-center">
                   {d.plate ? (
                     <Plate plate={d.plate} province={d.province} />
                   ) : (
