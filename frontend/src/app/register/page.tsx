@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
+import GoogleButton from "../GoogleButton";
 
 const inputCls =
   "w-full rounded-md border border-border bg-surface-muted px-3 py-2 text-sm outline-none focus:border-info";
@@ -79,13 +80,7 @@ export default function RegisterPage() {
         >
           {busy ? "กำลังสมัคร..." : "สมัครสมาชิก"}
         </button>
-        <button
-          type="button"
-          onClick={() => signIn("google", { callbackUrl: "/" })}
-          className="w-full rounded-md border border-border px-3 py-2 text-sm font-medium"
-        >
-          สมัคร/เข้าสู่ระบบด้วย Google
-        </button>
+        <GoogleButton label="สมัคร/เข้าสู่ระบบด้วย Google" />
         <p className="text-center text-sm text-ink-muted">
           มีบัญชีแล้ว?{" "}
           <Link href="/login" className="text-info hover:underline">
