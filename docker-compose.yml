@@ -40,6 +40,7 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_TRUST_HOST: "true"
       BACKEND_URL: http://backend:3000
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
     depends_on:
       - backend
 
