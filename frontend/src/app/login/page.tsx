@@ -58,6 +58,13 @@ export default function LoginPage() {
         >
           {busy ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
         </button>
+        <button
+          type="button"
+          onClick={() => signIn("google", { callbackUrl: "/" })}
+          className="w-full rounded-md border border-border px-3 py-2 text-sm font-medium"
+        >
+          เข้าสู่ระบบด้วย Google
+        </button>
         <p className="text-center text-sm text-ink-muted">
           ยังไม่มีบัญชี?{" "}
           <Link href="/register" className="text-info hover:underline">

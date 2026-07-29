@@ -1,5 +1,6 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 
 // ที่อยู่ backend ฝั่ง server (dev: Caddy บนเครื่อง / docker: http://backend:3000)
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost";
@@ -45,10 +46,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
+    // clientId/secret อ่านจาก env AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET เอง
+    // linking ปลอดภัยเพราะ signIn callback บังคับ email_verified แล้ว
+    Google({ allowDangerousEmailAccountLinking: true }),
   ],
   callbacks: {
-    jwt({ token, user }) {
-      if (user) {
+    signIn({ account, profile }) {
+      if (account?.provider !== "google") return true;
+      return profile?.email_verified === true;
+    },
+    async jwt({ token, user, account, profile }) {
+      if (account?.provider === "google") {
+        // แลก email → token/role ของ backend (สร้าง user ให้ถ้ายังไม่มี)
+        const res = await fetch(`${BACKEND_URL}/api/oauth`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-internal-secret": process.env.INTERNAL_SECRET!,
+          },
+          body: JSON.stringify({
+            email: profile?.email ?? token.email,
+            emailVerified: true, // signIn callback กันมาแล้ว
+          }),
+        });
+        // ไม่กลืน error — ให้ล็อกอินพังไปเลยดีกว่าได้ session ที่ไม่มีสิทธิ์
+        if (!res.ok) throw new Error(`/api/oauth failed: ${res.status}`);
+        const { token: backendToken, role } = await res.json();
+        token.role = role;
+        token.backendToken = backendToken;
+      } else if (user) {
         token.role = user.role;
         token.backendToken = user.backendToken;
       }
