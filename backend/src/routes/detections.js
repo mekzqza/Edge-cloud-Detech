@@ -76,6 +76,17 @@ router.get("/detections", async (req, res) => {
   res.json({ rows: page.rows, ...counts.rows[0] });
 });
 
+// ค้นด้วยเลขทะเบียน (ตรงตัวหรือบางส่วน) — หน้า /history เอาไปจับกลุ่มเป็นรอบเข้า-ออก
+router.get("/detections/plate/:plate", async (req, res) => {
+  const q = String(req.params.plate).trim();
+  if (!q) return res.status(400).json({ error: "ระบุเลขทะเบียน" });
+  const { rows } = await pool.query(
+    "SELECT * FROM detections WHERE plate ILIKE $1 ORDER BY created_at DESC LIMIT 1000",
+    [`%${q}%`],
+  );
+  res.json(rows);
+});
+
 router.get("/detections/time/:hours", async (req, res) => {
   const hours = Number(req.params.hours);
   if (!Number.isInteger(hours) || hours <= 0) {
