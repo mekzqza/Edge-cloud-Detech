@@ -1,7 +1,5 @@
 "use client";
-import { useState } from "react";
-import { useEffect } from "react";
-import type { Detection } from "@/types";
+import { useEffect, useState, useTransition } from "react";
 
 export default function StatTest({
   isAdmin,
@@ -14,6 +12,7 @@ export default function StatTest({
   const [name, setName] = useState<string>("");
   const [days, setDays] = useState<{ day: string; count: number }[]>([]);
   const [deleteId, setDeleteId] = useState<number>(0);
+  const [, startTransition] = useTransition();
 
   async function onSaveuser(id: number, name: string) {
     const res = await fetch("/api/mytest", {
@@ -58,7 +57,8 @@ export default function StatTest({
   }
 
   useEffect(() => {
-    fetchDialy();
+    startTransition(fetchDialy); // เลี่ยง setState ตรง ๆ ใน effect (eslint react-hooks)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
