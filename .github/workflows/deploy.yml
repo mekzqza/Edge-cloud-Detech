@@ -2,8 +2,8 @@ name: deploy
 
 on:
   push:
-    branches: [main, feat-registySystem] # ponytail: branch ทดสอบชั่วคราว — ลบออกเมื่อเทสต์เสร็จ
-  workflow_dispatch: # กดรันเองได้จากหน้า Actions
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:

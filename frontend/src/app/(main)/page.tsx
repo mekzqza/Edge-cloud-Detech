@@ -18,30 +18,34 @@ export default function OverviewPage() {
     console.log("fetching detections in", hours, "hours");
   }
 
+  async function fetchDetections() {
+    const res = await fetch("/api/detections");
+    setDetections(res.ok ? await res.json() : []);
+  }
+
   async function fetchLastDetection(count: number) {
     const res = await fetch(`/api/detections/last/${count}`);
     if (!res.ok) {
-      return null;
+      return setLastDetection([]);
     }
-    setLastDetection(await res.json());
-    console.log("fetching last detections", count);
+    const data = await res.json();
+    setLastDetection(data);
   }
 
-  // ดึงข้อมูลกราฟตามช่วงวัน — ใช้ route /time/:hours ที่มีอยู่ (วัน × 24 ชม.)
+  // ดึงข้อมูลกราฟตามช่วงวัน — ใช้ route /time/:hours (วัน × 24 ชม.)
   async function fetchChart(days: number) {
     const res = await fetch(`/api/detections/time/${days * 24}`);
-    if (!res.ok) {
-      setChartRows([]);
-      return;
-    }
-    setChartRows(await res.json());
+    setChartRows(res.ok ? await res.json() : []);
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchDetections();
     fetchLastDetection(4);
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchChart(range);
   }, [range]);
 
@@ -50,13 +54,22 @@ export default function OverviewPage() {
   const stats = [
     {
       label: "รถเข้าวันนี้",
-      value: detections?.filter((d) => d.plate && d.plate != "PENDING").length,
+      value: detections?.filter(
+        (d) => new Date(d.created_at).toDateString() === today,
+      ).length,
       icon: <CarIcon />,
       tone: "",
     },
     {
-      label: "อ่านป้ายสำเร้จ",
-      value: detections?.filter((d) => d.plate && d.plate != "PENDING").length,
+      // อ่านออกทั้ง 2 ฟิลด์
+      label: "อ่านป้ายสำเร็จ",
+      value: detections?.filter(
+        (d) =>
+          d.plate &&
+          d.plate != "UNKNOWN" &&
+          d.province &&
+          d.province != "UNKNOWN",
+      ).length,
       icon: <BadgeCheckIcon />,
       tone: "",
     },
@@ -66,11 +79,29 @@ export default function OverviewPage() {
       icon: <AlertIcon />,
       tone: "text-danger",
     },
-
     {
+      // อ่านออกฟิลด์เดียว — ทะเบียนได้แต่จังหวัดไม่ได้ หรือกลับกัน
+      label: "อ่านได้บางส่วน",
+      value: detections?.filter(
+        (d) =>
+          (d.plate &&
+            d.plate != "UNKNOWN" &&
+            (!d.province || d.province == "UNKNOWN")) ||
+          (d.province &&
+            d.province != "UNKNOWN" &&
+            (!d.plate || d.plate == "UNKNOWN")),
+      ).length,
+      icon: <HelpIcon />,
+      tone: "",
+    },
+    {
+      // อ่านไม่ออกทั้ง 2 ฟิลด์
       label: "อ่านไม่ได้",
-      value: detections?.filter((d) => (!d.plate && !d.plate) || "PENDING")
-        .length,
+      value: detections?.filter(
+        (d) =>
+          (!d.plate || d.plate == "UNKNOWN") &&
+          (!d.province || d.province == "UNKNOWN"),
+      ).length,
       icon: <HelpIcon />,
       tone: "text-warn",
     },
@@ -124,7 +155,7 @@ export default function OverviewPage() {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5">
         {stats.map((s) => (
           <div
             key={s.label}
