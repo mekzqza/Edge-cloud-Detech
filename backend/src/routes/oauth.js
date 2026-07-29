@@ -10,7 +10,7 @@ router.post("/oauth", async (req, res) => {
     return res.status(403).json({ error: "Forbidden" });
   }
   const { email, emailVerified } = req.body;
-  if ((email === "") | (typeof email !== "string")) {
+  if (email === "" || typeof email !== "string") {
     return res.status(400).json({ error: "Invalid email" });
   }
 

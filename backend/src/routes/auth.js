@@ -39,7 +39,11 @@ router.post("/login", async (req, res) => {
     [username],
   );
   const user = rows[0];
-  if (!user || !verifyPassword(password, user.password_hash)) {
+  if (
+    !user ||
+    !user.password_hash ||
+    !verifyPassword(password, user.password_hash)
+  ) {
     return res.status(401).json({ error: "username หรือ password ไม่ถูกต้อง" });
   }
   res.json({ token: signToken(user), role: user.role });
