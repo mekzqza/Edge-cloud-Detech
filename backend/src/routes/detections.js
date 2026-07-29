@@ -102,11 +102,16 @@ router.get("/detections/last/:count", async (req, res) => {
 
 router.patch("/detections/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const fields = ["label", "plate", "province"].filter((f) => f in req.body);
+  const fields = ["label", "plate", "province", "verified"].filter(
+    (f) => f in req.body,
+  );
   if (!Number.isInteger(id) || fields.length === 0) {
-    return res
-      .status(400)
-      .json({ error: "ระบุ id และอย่างน้อย 1 field (label/plate/province)" });
+    return res.status(400).json({
+      error: "ระบุ id และอย่างน้อย 1 field (label/plate/province/verified)",
+    });
+  }
+  if ("verified" in req.body && typeof req.body.verified !== "boolean") {
+    return res.status(400).json({ error: "verified ต้องเป็น true/false" });
   }
   const set = fields.map((f, i) => `${f} = $${i + 1}`).join(", ");
   const values = fields.map((f) => req.body[f]);
