@@ -39,9 +39,41 @@ router.post("/detections", async (req, res) => {
   res.status(201).json(result.rows[0]);
 });
 
+// ไม่ส่ง limit = ได้ array ทั้งหมดเหมือนเดิม (ของเก่ายังเรียกแบบนี้อยู่)
+// ส่ง ?limit=&offset=&unverified=1 = ได้ { rows, total, unverified } สำหรับแบ่งหน้า
 router.get("/detections", async (req, res) => {
-  const result = await pool.query("SELECT * FROM detections ORDER BY id DESC");
-  res.json(result.rows);
+  if (req.query.limit == null) {
+    const result = await pool.query(
+      "SELECT * FROM detections ORDER BY id DESC",
+    );
+    return res.json(result.rows);
+  }
+
+  const limit = Number(req.query.limit);
+  const offset = Number(req.query.offset ?? 0);
+  if (
+    !Number.isInteger(limit) ||
+    limit <= 0 ||
+    limit > 100 ||
+    !Number.isInteger(offset) ||
+    offset < 0
+  ) {
+    return res
+      .status(400)
+      .json({ error: "limit (1..100) / offset ไม่ถูกต้อง" });
+  }
+
+  const where = req.query.unverified === "1" ? "WHERE NOT verified" : "";
+  const [page, counts] = await Promise.all([
+    pool.query(
+      `SELECT * FROM detections ${where} ORDER BY id DESC LIMIT $1 OFFSET $2`,
+      [limit, offset],
+    ),
+    pool.query(
+      "SELECT count(*)::int AS total, count(*) FILTER (WHERE NOT verified)::int AS unverified FROM detections",
+    ),
+  ]);
+  res.json({ rows: page.rows, ...counts.rows[0] });
 });
 
 router.get("/detections/time/:hours", async (req, res) => {
@@ -70,11 +102,16 @@ router.get("/detections/last/:count", async (req, res) => {
 
 router.patch("/detections/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const fields = ["label", "plate", "province"].filter((f) => f in req.body);
+  const fields = ["label", "plate", "province", "verified"].filter(
+    (f) => f in req.body,
+  );
   if (!Number.isInteger(id) || fields.length === 0) {
-    return res
-      .status(400)
-      .json({ error: "ระบุ id และอย่างน้อย 1 field (label/plate/province)" });
+    return res.status(400).json({
+      error: "ระบุ id และอย่างน้อย 1 field (label/plate/province/verified)",
+    });
+  }
+  if ("verified" in req.body && typeof req.body.verified !== "boolean") {
+    return res.status(400).json({ error: "verified ต้องเป็น true/false" });
   }
   const set = fields.map((f, i) => `${f} = $${i + 1}`).join(", ");
   const values = fields.map((f) => req.body[f]);
