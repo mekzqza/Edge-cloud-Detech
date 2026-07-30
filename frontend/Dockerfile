@@ -6,7 +6,7 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# ── รัน Next.js server (Caddy อยู่ข้างหน้า ทำ TLS + proxy ให้) ──
+# ── รัน Next.js server (nginx อยู่ข้างหน้า ทำ TLS + proxy ให้) ──
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production

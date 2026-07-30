@@ -4,7 +4,7 @@ import { auth, signOut } from "@/auth";
 const nav = [
   { href: "/", label: "ภาพรวม" },
   { href: "/records", label: "บันทึกรถเข้า" },
-  { href: "/history", label: "ประวัติรถเข้า" },
+  { href: "/history", label: "ค้นประวัติรถ" },
   { href: "/admin", label: "จัดการระบบ" },
 ];
 

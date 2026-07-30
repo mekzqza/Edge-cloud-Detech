@@ -1,9 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useTransition } from "react";
+import { groupVisits, type Visit } from "@/lib/visits";
 import type { Detection } from "@/types";
 
-// แกลเลอรีประวัติรถเข้า + ปุ่มแก้ไข/ลบสำหรับ admin (ย้ายมาจาก App.tsx เดิม)
+/* ===== ตั้งค่าหน้านี้ ===== */
+const VISIT_GAP_MIN = 30; // ไม่เจอรถเกินกี่นาที ถือว่าออกไปแล้ว (ครั้งหน้าที่เจอ = รอบใหม่)
+/* ========================= */
+
+const time = (iso: string) =>
+  new Date(iso).toLocaleTimeString("th-TH", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const day = (iso: string) =>
+  new Date(iso).toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+// อยู่กี่นาที — รอบที่มีภาพเดียวจะได้ 0 นาที (เห็นแวบเดียว)
+function duration(v: Visit) {
+  const min = Math.round((+new Date(v.exit) - +new Date(v.enter)) / 60_000);
+  if (min < 1) return "< 1 นาที";
+  return min < 60 ? `${min} นาที` : `${Math.floor(min / 60)} ชม. ${min % 60} นาที`;
+}
+
+// ค้นประวัติรถ — พิมพ์ทะเบียนแล้วดูว่าคันนั้นเข้า-ออกตอนไหนบ้าง
 export default function HistoryList({
   isAdmin,
   token,
@@ -11,115 +36,131 @@ export default function HistoryList({
   isAdmin: boolean;
   token: string;
 }) {
-  const [detections, setDetections] = useState<Detection[]>([]);
-
   const [q, setQ] = useState("");
+  const [visits, setVisits] = useState<Visit[] | null>(null);
+  const [rows, setRows] = useState<Detection[]>([]);
+  const [busy, startTransition] = useTransition();
 
-  const shown = detections.filter(
-    (d) => !q || d.plate?.includes(q) || d.province?.includes(q),
-  );
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
-    const res = await fetch("/api/detections");
-    setDetections(await res.json());
+  function run(plate: string) {
+    startTransition(async () => {
+      const res = await fetch(
+        `/api/detections/plate/${encodeURIComponent(plate)}`,
+      );
+      const found: Detection[] = res.ok ? await res.json() : [];
+      setRows(found);
+      setVisits(groupVisits(found, VISIT_GAP_MIN));
+    });
   }
 
-  async function remove(id: number) {
-    if (!confirm("ลบรูปนี้?")) return;
-    const res = await fetch(`/api/detections/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return alert("ลบไม่สำเร็จ");
-    await load();
+  function search(e: React.FormEvent) {
+    e.preventDefault();
+    if (q.trim()) run(q.trim());
   }
 
-  // ponytail: แก้ไขด้วย prompt() — ลาซี่สุด, upgrade เป็น inline form ถ้าต้องแก้บ่อย
-  async function edit(d: Detection) {
-    const plate = prompt("ทะเบียน:", d.plate ?? "");
-    if (plate === null) return;
-    const province = prompt("จังหวัด:", d.province ?? "");
-    if (province === null) return;
-    const res = await fetch(`/api/detections/${d.id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ plate, province }),
-    });
-    if (!res.ok) return alert("แก้ไขไม่สำเร็จ");
-    await load();
+  // ponytail: ลบทั้งรอบ = ลบทีละภาพ — รอบละไม่กี่สิบภาพ ยังไม่ต้องมี endpoint ลบเป็นชุด
+  async function removeVisit(v: Visit) {
+    const ids = rows
+      .filter(
+        (d) =>
+          d.plate === v.plate &&
+          d.created_at >= v.enter &&
+          d.created_at <= v.exit,
+      )
+      .map((d) => d.id);
+    if (!confirm(`ลบรอบนี้ทั้งหมด ${ids.length} ภาพ?`)) return;
+    for (const id of ids) {
+      await fetch(`/api/detections/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+    run(q.trim());
   }
 
   return (
     <div>
-      <h1 className="text-lg font-medium">
-        ประวัติรถเข้า ({detections.length})
-      </h1>
-      <input
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="ค้นหาทะเบียน / จังหวัด"
-        className="mt-3 w-full max-w-xs rounded-md border border-border bg-surface px-3 py-2 text-sm"
-      />
-      {detections.length === 0 ? (
-        <p className="mt-4 text-sm text-ink-muted">ยังไม่มีรายการ</p>
+      <header className="border-b border-border pb-4">
+        <h1 className="text-lg font-medium">ค้นประวัติรถ</h1>
+        <p className="mt-0.5 text-xs text-ink-faint">
+          พิมพ์เลขทะเบียน (บางส่วนก็ได้) เพื่อดูเวลาเข้า-ออกของรถคันนั้น
+        </p>
+
+        <form onSubmit={search} className="mt-3 flex gap-2">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="เช่น กพ1687"
+            className="w-full max-w-xs rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          />
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-md bg-ink px-4 py-2 text-sm text-surface transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? "กำลังค้น…" : "ค้นหา"}
+          </button>
+        </form>
+      </header>
+
+      {visits === null ? (
+        <p className="mt-8 text-sm text-ink-faint">ยังไม่ได้ค้นหา</p>
+      ) : visits.length === 0 ? (
+        <p className="mt-8 text-sm text-ink-muted">
+          ไม่พบทะเบียนที่ตรงกับ “{q}”
+        </p>
       ) : (
-        <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-          {shown.map((d) => (
-            <figure
-              key={d.id}
-              className="overflow-hidden rounded-lg border border-border bg-surface"
-            >
-              <img
-                src={`/uploads/${d.filename}`}
-                alt={d.plate ?? d.label ?? ""}
-                className="block h-40 w-full object-cover"
-              />
-              <figcaption className="p-3 text-sm">
-                {d.plate ? (
-                  <>
-                    <span className="font-mono">{d.plate}</span>
-                    <span className="text-ink-muted">
-                      {" "}
-                      · {d.province ?? ""}
+        <>
+          <p className="mt-6 text-xs text-ink-faint">
+            {visits.length} รอบ จาก {rows.length} ภาพ · นับรอบใหม่เมื่อหายไปเกิน{" "}
+            {VISIT_GAP_MIN} นาที
+          </p>
+
+          <ul className={`mt-3 space-y-2 ${busy ? "opacity-50" : ""}`}>
+            {visits.map((v) => (
+              <li
+                key={`${v.plate}-${v.enter}`}
+                className="flex items-center gap-4 rounded-lg border border-border bg-surface p-3"
+              >
+                <img
+                  src={`/uploads/${v.filename}`}
+                  alt={v.plate}
+                  loading="lazy"
+                  className="h-16 w-24 shrink-0 rounded-md bg-surface-muted object-cover"
+                />
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-x-3">
+                    <span className="font-mono text-base tracking-wide">
+                      {v.plate}
                     </span>
-                    {d.confidence != null && (
-                      <span className="text-ink-faint">
-                        {" "}
-                        ({Math.round(d.confidence * 100)}%)
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  d.label || "—"
-                )}
-                {isAdmin && (
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={() => edit(d)}
-                      className="rounded-md border border-border px-3 py-1 text-xs text-ink-muted hover:bg-surface-muted"
-                    >
-                      แก้ไข
-                    </button>
-                    <button
-                      onClick={() => remove(d.id)}
-                      className="rounded-md bg-danger-soft px-3 py-1 text-xs text-danger hover:opacity-80"
-                    >
-                      ลบ
-                    </button>
+                    <span className="text-xs text-ink-faint">
+                      {day(v.enter)}
+                    </span>
                   </div>
+
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-ink-muted">
+                    <span className="text-success">เข้า {time(v.enter)}</span>
+                    <span className="text-ink-faint">→</span>
+                    <span className="text-danger">ออก {time(v.exit)}</span>
+                    <span className="text-xs text-ink-faint">
+                      ({duration(v)} · {v.shots} ภาพ)
+                    </span>
+                  </div>
+                </div>
+
+                {isAdmin && (
+                  <button
+                    onClick={() => removeVisit(v)}
+                    className="shrink-0 rounded-md bg-danger-soft px-3 py-1 text-xs text-danger hover:opacity-80"
+                  >
+                    ลบรอบนี้
+                  </button>
                 )}
-              </figcaption>
-            </figure>
-          ))}
-        </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

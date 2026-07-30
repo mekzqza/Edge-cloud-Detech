@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-// ปลายทาง backend ตอน dev — บน docker Caddy จัดการ /api และ /uploads ให้ก่อนถึง Next อยู่แล้ว
+// ปลายทาง backend ตอน dev — บน docker nginx จัดการ /api และ /uploads ให้ก่อนถึง Next อยู่แล้ว
 const backend = process.env.BACKEND_URL || "http://localhost";
 
 const nextConfig: NextConfig = {
