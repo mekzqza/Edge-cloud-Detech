@@ -28,4 +28,4 @@ description: วิธี build/รัน/ทดสอบ frontend (Next.js + Ne
 - rewrite `/api/:path*` ต้องอยู่ใน `fallback` ของ `rewrites()` — ไม่งั้นชนะ
   `/api/auth/[...nextauth]` (dynamic route) แล้ว NextAuth โดน proxy ไป backend
 - rewrite destination ถูก bake ตอน `next build` (ไม่อ่าน env ตอน start) —
-  ใน docker ไม่กระทบเพราะ Caddy แยก /api ก่อนถึง Next
+  ใน docker ไม่กระทบเพราะ nginx แยก /api ก่อนถึง Next

@@ -2,7 +2,7 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
-// ที่อยู่ backend ฝั่ง server (dev: Caddy บนเครื่อง / docker: http://backend:3000)
+// ที่อยู่ backend ฝั่ง server (dev: nginx บนเครื่อง / docker: http://backend:3000)
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost";
 
 // เพิ่ม role + token ของ backend เข้า session ของ NextAuth
