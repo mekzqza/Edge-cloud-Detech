@@ -3,8 +3,17 @@
 import { useEffect, useState } from "react";
 import type { Detection } from "@/types";
 
+// ตัวเลข 5 ช่องด้านบน — backend นับมาให้แล้ว (GET /api/detections/stats)
+type Stats = {
+  today: number;
+  ok: number;
+  unverified: number;
+  partial: number;
+  unreadable: number;
+};
+
 export default function OverviewPage() {
-  const [detections, setDetections] = useState<Detection[] | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [lastDetechtion, setLastDetection] = useState<Detection[] | null>(null);
   const [time, setTime] = useState<number>(24);
   const [range, setRange] = useState<number>(1); // ช่วงกราฟ: 1/7/15/30 วัน
@@ -18,9 +27,9 @@ export default function OverviewPage() {
     console.log("fetching detections in", hours, "hours");
   }
 
-  async function fetchDetections() {
-    const res = await fetch("/api/detections");
-    setDetections(res.ok ? await res.json() : []);
+  async function fetchStats() {
+    const res = await fetch("/api/detections/stats");
+    setStats(res.ok ? await res.json() : null);
   }
 
   async function fetchLastDetection(count: number) {
@@ -40,7 +49,7 @@ export default function OverviewPage() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchDetections();
+    fetchStats();
     fetchLastDetection(4);
   }, []);
 
@@ -50,58 +59,33 @@ export default function OverviewPage() {
   }, [range]);
 
   const today = new Date().toDateString();
-  // ponytail: icon/tone เป็นแค่ของตกแต่ง — value/filter แก้ได้ตามสบาย
-  const stats = [
-    {
-      label: "รถเข้าวันนี้",
-      value: detections?.filter(
-        (d) => new Date(d.created_at).toDateString() === today,
-      ).length,
-      icon: <CarIcon />,
-      tone: "",
-    },
+  // ponytail: icon/tone เป็นแค่ของตกแต่ง — value มาจาก backend หมดแล้ว
+  const statCards = [
+    { label: "รถเข้าวันนี้", value: stats?.today, icon: <CarIcon />, tone: "" },
     {
       // อ่านออกทั้ง 2 ฟิลด์
       label: "อ่านป้ายสำเร็จ",
-      value: detections?.filter(
-        (d) =>
-          d.plate &&
-          d.plate != "UNKNOWN" &&
-          d.province &&
-          d.province != "UNKNOWN",
-      ).length,
+      value: stats?.ok,
       icon: <BadgeCheckIcon />,
       tone: "",
     },
     {
       label: "รถแปลกปลอม",
-      value: detections?.filter((d) => !d.verified).length,
+      value: stats?.unverified,
       icon: <AlertIcon />,
       tone: "text-danger",
     },
     {
       // อ่านออกฟิลด์เดียว — ทะเบียนได้แต่จังหวัดไม่ได้ หรือกลับกัน
       label: "อ่านได้บางส่วน",
-      value: detections?.filter(
-        (d) =>
-          (d.plate &&
-            d.plate != "UNKNOWN" &&
-            (!d.province || d.province == "UNKNOWN")) ||
-          (d.province &&
-            d.province != "UNKNOWN" &&
-            (!d.plate || d.plate == "UNKNOWN")),
-      ).length,
+      value: stats?.partial,
       icon: <HelpIcon />,
       tone: "",
     },
     {
       // อ่านไม่ออกทั้ง 2 ฟิลด์
       label: "อ่านไม่ได้",
-      value: detections?.filter(
-        (d) =>
-          (!d.plate || d.plate == "UNKNOWN") &&
-          (!d.province || d.province == "UNKNOWN"),
-      ).length,
+      value: stats?.unreadable,
       icon: <HelpIcon />,
       tone: "text-warn",
     },
@@ -156,7 +140,7 @@ export default function OverviewPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5">
-        {stats.map((s) => (
+        {statCards.map((s) => (
           <div
             key={s.label}
             className="rounded-lg border border-border bg-surface p-4"

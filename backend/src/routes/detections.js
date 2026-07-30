@@ -29,6 +29,7 @@ router.post("/detections", async (req, res) => {
   }
 
   const b64 = image.replace(/^data:.*;base64,/, "");
+
   const filename = `${Date.now()}.jpg`;
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(b64, "base64"));
 
@@ -39,12 +40,17 @@ router.post("/detections", async (req, res) => {
   res.status(201).json(result.rows[0]);
 });
 
-// ไม่ส่ง limit = ได้ array ทั้งหมดเหมือนเดิม (ของเก่ายังเรียกแบบนี้อยู่)
+// ไม่ส่ง limit = ได้ array แบบเดิม แต่ตัดที่ DEFAULT_LIMIT แถวล่าสุด
+// (เมื่อก่อนคืนทั้งตาราง — ตารางโตเรื่อย ๆ แล้ว backend ค้าง)
 // ส่ง ?limit=&offset=&unverified=1 = ได้ { rows, total, unverified } สำหรับแบ่งหน้า
+const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 100;
+
 router.get("/detections", async (req, res) => {
   if (req.query.limit == null) {
     const result = await pool.query(
-      "SELECT * FROM detections ORDER BY id DESC",
+      "SELECT * FROM detections ORDER BY id DESC LIMIT $1",
+      [DEFAULT_LIMIT],
     );
     return res.json(result.rows);
   }
@@ -54,13 +60,13 @@ router.get("/detections", async (req, res) => {
   if (
     !Number.isInteger(limit) ||
     limit <= 0 ||
-    limit > 100 ||
+    limit > MAX_LIMIT ||
     !Number.isInteger(offset) ||
     offset < 0
   ) {
     return res
       .status(400)
-      .json({ error: "limit (1..100) / offset ไม่ถูกต้อง" });
+      .json({ error: `limit (1..${MAX_LIMIT}) / offset ไม่ถูกต้อง` });
   }
 
   const where = req.query.unverified === "1" ? "WHERE NOT verified" : "";
@@ -74,6 +80,31 @@ router.get("/detections", async (req, res) => {
     ),
   ]);
   res.json({ rows: page.rows, ...counts.rows[0] });
+});
+
+// ตัวเลข 5 ช่องบนหน้า Overview — นับด้วย SQL แทนการโหลดทั้งตารางไปนับใน browser
+// ponytail: fix timezone ไทยไว้เลย ถ้าต้องรองรับหลายโซนค่อยรับเป็น query param
+const TZ = "Asia/Bangkok";
+
+router.get("/detections/stats", async (_req, res) => {
+  const { rows } = await pool.query(
+    `SELECT
+       count(*) FILTER (WHERE day = today)::int              AS today,
+       count(*) FILTER (WHERE has_plate AND has_prov)::int   AS ok,
+       count(*) FILTER (WHERE NOT verified)::int             AS unverified,
+       count(*) FILTER (WHERE has_plate <> has_prov)::int    AS partial,
+       count(*) FILTER (WHERE NOT has_plate AND NOT has_prov)::int AS unreadable
+     FROM (
+       SELECT verified,
+              (created_at AT TIME ZONE $1)::date AS day,
+              (now()      AT TIME ZONE $1)::date AS today,
+              coalesce(plate, '')    NOT IN ('', 'UNKNOWN') AS has_plate,
+              coalesce(province, '') NOT IN ('', 'UNKNOWN') AS has_prov
+       FROM detections
+     ) t`,
+    [TZ],
+  );
+  res.json(rows[0]);
 });
 
 // ค้นด้วยเลขทะเบียน (ตรงตัวหรือบางส่วน) — หน้า /history เอาไปจับกลุ่มเป็นรอบเข้า-ออก
