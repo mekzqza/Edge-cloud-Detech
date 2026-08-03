@@ -32,7 +32,6 @@ router.post("/detections", async (req, res) => {
   const filename = `${Date.now()}.jpg`;
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(b64, "base64"));
 
-  // จับคู่กับทะเบียนที่อนุมัติแล้วในตาราง vehicles ตอน insert เลย (ไม่เจอ = access_granted false)
   const result = await pool.query(
     `INSERT INTO detections (filename, plate, province, confidence, captured_at, matched_vehicle_id, access_granted)
      SELECT $1::text, $2::text, $3::text, $4::real, $5::timestamptz, v.id, v.id IS NOT NULL

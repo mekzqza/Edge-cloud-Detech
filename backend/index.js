@@ -12,7 +12,6 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // เส�
 app.use("/api", require("./src/routes/auth"));
 app.use("/api", require("./src/routes/oauth"));
 app.use("/api", require("./src/routes/detections"));
-app.use("/api", require("./src/routes/mytest"));
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
 initDb().then(() => {

@@ -56,7 +56,6 @@ async function initDb() {
       CONSTRAINT vehicles_plate_province_key UNIQUE (plate, province)
     )`);
 
-  // detections ผูกกับ vehicles: รถคันไหน + ผ่านหรือไม่ (NULL = ยังไม่ได้ตรวจ/ไม่พบ)
   await pool.query(`
     ALTER TABLE detections
       ADD COLUMN IF NOT EXISTS matched_vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE SET NULL,
