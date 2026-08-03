@@ -28,12 +28,6 @@ async function initDb() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS test (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL
-    )`);
-
-  await pool.query(`
     ALTER TABLE detections ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT false`);
 
   await pool.query(`
