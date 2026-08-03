@@ -32,15 +32,18 @@ router.post("/detections", async (req, res) => {
   const filename = `${Date.now()}.jpg`;
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(b64, "base64"));
 
+  // จับคู่กับทะเบียนที่อนุมัติแล้วในตาราง vehicles ตอน insert เลย (ไม่เจอ = access_granted false)
   const result = await pool.query(
-    "INSERT INTO detections (filename, plate, province, confidence, captured_at) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+    `INSERT INTO detections (filename, plate, province, confidence, captured_at, matched_vehicle_id, access_granted)
+     SELECT $1::text, $2::text, $3::text, $4::real, $5::timestamptz, v.id, v.id IS NOT NULL
+     FROM (SELECT 1) x
+     LEFT JOIN vehicles v ON v.plate = $2 AND v.province = $3 AND v.status = 'approved'
+     RETURNING *`,
     [filename, plate, province, confidence, captured_at ?? null],
   );
   res.status(201).json(result.rows[0]);
 });
 
-// ไม่ส่ง limit = ได้ array ทั้งหมดเหมือนเดิม (ของเก่ายังเรียกแบบนี้อยู่)
-// ส่ง ?limit=&offset=&unverified=1 = ได้ { rows, total, unverified } สำหรับแบ่งหน้า
 router.get("/detections", async (req, res) => {
   if (req.query.limit == null) {
     const result = await pool.query(
@@ -76,7 +79,6 @@ router.get("/detections", async (req, res) => {
   res.json({ rows: page.rows, ...counts.rows[0] });
 });
 
-// ค้นด้วยเลขทะเบียน (ตรงตัวหรือบางส่วน) — หน้า /history เอาไปจับกลุ่มเป็นรอบเข้า-ออก
 router.get("/detections/plate/:plate", async (req, res) => {
   const q = String(req.params.plate).trim();
   if (!q) return res.status(400).json({ error: "ระบุเลขทะเบียน" });
