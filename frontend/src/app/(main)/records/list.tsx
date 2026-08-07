@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
+import Lightbox from "@/app/Lightbox";
 import { pageList } from "@/lib/pagination";
 import type { Detection } from "@/types";
 
@@ -44,6 +45,7 @@ export default function RecordsList({
   const [onlyUnverified, setOnlyUnverified] = useState(false);
   const [date, setDate] = useState(""); // "" = ทุกวัน
   const [plateFilter, setPlateFilter] = useState("");
+  const [zoom, setZoom] = useState<string | null>(null); // รูปที่กำลังดูเต็มจอ
   const [busy, startTransition] = useTransition(); // busy = ระหว่างสลับหน้า/รีเฟรช
 
   const load = useCallback(() => {
@@ -94,6 +96,8 @@ export default function RecordsList({
 
   return (
     <div>
+      <Lightbox src={zoom} onClose={() => setZoom(null)} />
+
       <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border pb-4">
         <div>
           <h1 className="text-lg font-medium">บันทึกรถเข้า</h1>
@@ -206,12 +210,19 @@ export default function RecordsList({
               }`}
             >
               <div className="relative overflow-hidden">
-                <img
-                  src={`/uploads/${d.filename}`}
-                  alt={d.plate ?? d.label ?? "ภาพรถที่ตรวจจับได้"}
-                  loading="lazy"
-                  className="block aspect-[4/3] w-full bg-surface-muted object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => setZoom(`/uploads/${d.filename}`)}
+                  title="ดูรูปเต็มจอ"
+                  className="block w-full cursor-zoom-in"
+                >
+                  <img
+                    src={`/uploads/${d.filename}`}
+                    alt={d.plate ?? d.label ?? "ภาพรถที่ตรวจจับได้"}
+                    loading="lazy"
+                    className="block aspect-[4/3] w-full bg-surface-muted object-cover"
+                  />
+                </button>
                 {!d.verified && (
                   <span className="absolute left-2 top-2 rounded bg-danger-soft px-1.5 py-0.5 text-[10px] text-danger">
                     ยังไม่ยืนยัน

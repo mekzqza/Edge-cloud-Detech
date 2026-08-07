@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Lightbox from "@/app/Lightbox";
 import { groupVisits, type Visit } from "@/lib/visits";
 import type { Detection } from "@/types";
 
@@ -39,6 +40,7 @@ export default function HistoryList({
   const [q, setQ] = useState("");
   const [visits, setVisits] = useState<Visit[] | null>(null);
   const [rows, setRows] = useState<Detection[]>([]);
+  const [zoom, setZoom] = useState<string | null>(null); // รูปที่กำลังดูเต็มจอ
   const [busy, startTransition] = useTransition();
 
   function run(plate: string) {
@@ -79,6 +81,8 @@ export default function HistoryList({
 
   return (
     <div>
+      <Lightbox src={zoom} onClose={() => setZoom(null)} />
+
       <header className="border-b border-border pb-4">
         <h1 className="text-lg font-medium">ค้นประวัติรถ</h1>
         <p className="mt-0.5 text-xs text-ink-faint">
@@ -122,12 +126,19 @@ export default function HistoryList({
                 key={`${v.plate}-${v.enter}`}
                 className="flex items-center gap-4 rounded-lg border border-border bg-surface p-3"
               >
-                <img
-                  src={`/uploads/${v.filename}`}
-                  alt={v.plate}
-                  loading="lazy"
-                  className="h-16 w-24 shrink-0 rounded-md bg-surface-muted object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => setZoom(`/uploads/${v.filename}`)}
+                  title="ดูรูปเต็มจอ"
+                  className="shrink-0 cursor-zoom-in"
+                >
+                  <img
+                    src={`/uploads/${v.filename}`}
+                    alt={v.plate}
+                    loading="lazy"
+                    className="h-16 w-24 rounded-md bg-surface-muted object-cover"
+                  />
+                </button>
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-3">
