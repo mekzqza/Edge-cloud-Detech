@@ -12,6 +12,13 @@ const CARD_MIN_WIDTH = 220; // ความกว้างขั้นต่ำ�
 
 type Page = { rows: Detection[]; total: number; unverified: number };
 
+// ตัวกรองผลอ่านป้าย — "" = ไม่กรอง
+const plateFilters = [
+  { key: "", label: "ทุกคัน" },
+  { key: "ok", label: "อ่านป้ายได้" },
+  { key: "unread", label: "อ่านไม่ออก" },
+];
+
 // ป้ายทะเบียนจำลอง — เลขทะเบียนบรรทัดบน จังหวัดบรรทัดล่าง กรอบดำพื้นขาวเหมือนป้ายจริง
 function Plate({ plate, province }: { plate: string; province: string | null }) {
   return (
@@ -35,30 +42,23 @@ export default function RecordsList({
   const [data, setData] = useState<Page | null>(null);
   const [page, setPage] = useState(1);
   const [onlyUnverified, setOnlyUnverified] = useState(false);
+  const [date, setDate] = useState(""); // "" = ทุกวัน
+  const [plateFilter, setPlateFilter] = useState("");
   const [busy, startTransition] = useTransition(); // busy = ระหว่างสลับหน้า/รีเฟรช
 
   const load = useCallback(() => {
     startTransition(async () => {
-      const offset = (page - 1) * PER_PAGE;
       const q = new URLSearchParams({
         limit: String(PER_PAGE),
-        offset: String(offset),
+        offset: String((page - 1) * PER_PAGE),
         ...(onlyUnverified ? { unverified: "1" } : {}),
+        ...(date ? { date } : {}),
+        ...(plateFilter ? { plate: plateFilter } : {}),
       });
       const res = await fetch(`/api/detections?${q}`);
-      if (!res.ok) return setData({ rows: [], total: 0, unverified: 0 });
-
-      const json: Page | Detection[] = await res.json();
-      // backend ตัวเก่ายังไม่รู้จัก limit — ส่ง array ทั้งก้อนมา ก็แบ่งหน้าฝั่ง client ไปก่อน
-      if (!Array.isArray(json)) return setData(json);
-      const unverified = json.filter((d) => !d.verified);
-      setData({
-        rows: (onlyUnverified ? unverified : json).slice(offset, offset + PER_PAGE),
-        total: json.length,
-        unverified: unverified.length,
-      });
+      setData(res.ok ? await res.json() : { rows: [], total: 0, unverified: 0 });
     });
-  }, [page, onlyUnverified]);
+  }, [page, onlyUnverified, date, plateFilter]);
 
   useEffect(() => {
     load();
@@ -128,6 +128,49 @@ export default function RecordsList({
           ))}
         </div>
 
+        <div className="inline-flex rounded-md border border-border bg-surface p-0.5 text-sm">
+          {plateFilters.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => {
+                setPlateFilter(f.key);
+                setPage(1);
+              }}
+              className={`rounded-[6px] px-3 py-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
+                plateFilter === f.key
+                  ? "bg-ink text-surface"
+                  : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ponytail: input type=date ของเบราว์เซอร์เอง — ไม่ต้องลง date picker */}
+        <input
+          type="date"
+          value={date}
+          max={new Date().toLocaleDateString("sv-SE")}
+          onChange={(e) => {
+            setDate(e.target.value);
+            setPage(1);
+          }}
+          aria-label="ดูเฉพาะวันที่"
+          className="rounded-md border border-border bg-surface px-3 py-1.5 font-mono text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        />
+        {date && (
+          <button
+            onClick={() => {
+              setDate("");
+              setPage(1);
+            }}
+            className="text-sm text-ink-muted underline-offset-4 hover:text-ink hover:underline"
+          >
+            ทุกวัน
+          </button>
+        )}
+
         <button
           onClick={() => load()}
           className="ml-auto text-sm text-ink-muted underline-offset-4 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
@@ -140,7 +183,11 @@ export default function RecordsList({
         <p className="mt-8 text-sm text-ink-faint">กำลังโหลด…</p>
       ) : rows.length === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">
-          {onlyUnverified ? "ยืนยันครบทุกคันแล้ว" : "ยังไม่มีรถเข้า"}
+          {onlyUnverified
+            ? "ยืนยันครบทุกคันแล้ว"
+            : date || plateFilter
+              ? "ไม่มีรถที่ตรงกับตัวกรอง"
+              : "ยังไม่มีรถเข้า"}
         </p>
       ) : (
         <div

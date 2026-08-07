@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { pool } = require("../db");
 const { requireAdmin } = require("../auth");
+const { buildWhere } = require("./detections-filter");
 
 const router = Router();
 
@@ -44,9 +45,12 @@ router.post("/detections", async (req, res) => {
 });
 
 router.get("/detections", async (req, res) => {
+  const { where, params } = buildWhere(req.query);
+
   if (req.query.limit == null) {
     const result = await pool.query(
-      "SELECT * FROM detections ORDER BY id DESC",
+      `SELECT * FROM detections ${where} ORDER BY id DESC`,
+      params,
     );
     return res.json(result.rows);
   }
@@ -65,14 +69,19 @@ router.get("/detections", async (req, res) => {
       .json({ error: "limit (1..100) / offset ไม่ถูกต้อง" });
   }
 
-  const where = req.query.unverified === "1" ? "WHERE NOT verified" : "";
+  // ยอดนับต้องอยู่ในขอบเขตวันที่/ป้ายเดียวกับหน้าที่ขอ แต่ไม่กรอง unverified
+  // ไม่งั้นแท็บ "ทั้งหมด" จะหายไป และเลขหน้าคำนวณผิด
+  const base = buildWhere({ date: req.query.date, plate: req.query.plate });
+
+  const n = params.length;
   const [page, counts] = await Promise.all([
     pool.query(
-      `SELECT * FROM detections ${where} ORDER BY id DESC LIMIT $1 OFFSET $2`,
-      [limit, offset],
+      `SELECT * FROM detections ${where} ORDER BY id DESC LIMIT $${n + 1} OFFSET $${n + 2}`,
+      [...params, limit, offset],
     ),
     pool.query(
-      "SELECT count(*)::int AS total, count(*) FILTER (WHERE NOT verified)::int AS unverified FROM detections",
+      `SELECT count(*)::int AS total, count(*) FILTER (WHERE NOT verified)::int AS unverified FROM detections ${base.where}`,
+      base.params,
     ),
   ]);
   res.json({ rows: page.rows, ...counts.rows[0] });
