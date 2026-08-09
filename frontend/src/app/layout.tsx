@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Edge Cloud Detech",
-  icons: "/favicon.svg",
+  icons: "/b_edge_cloud.svg",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

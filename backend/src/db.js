@@ -1,10 +1,8 @@
 const { Pool } = require("pg");
 const { hashPassword } = require("./auth");
 
-// ท่อเชื่อม Postgres ใช้ร่วมกันทั้งแอป (อ่านที่อยู่จาก env ใน docker-compose)
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-// สร้างตารางตอนแอปเริ่ม — มีตารางใหม่ก็เพิ่ม CREATE TABLE ที่นี่
 async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS detections (
@@ -28,12 +26,6 @@ async function initDb() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS test (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL
-    )`);
-
-  await pool.query(`
     ALTER TABLE detections ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT false`);
 
   await pool.query(`
@@ -42,7 +34,25 @@ async function initDb() {
   await pool.query(`
       ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
 
-  // seed admin จาก env ครั้งแรก (ถ้ายังไม่มี user ชื่อนี้) — เปลี่ยนรหัสผ่านทีหลังได้
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS vehicles (
+      id          serial PRIMARY KEY,
+      plate       text NOT NULL,
+      province    text,
+      owner_id    integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status      text NOT NULL DEFAULT 'pending',
+      approved_by integer REFERENCES users(id) ON DELETE SET NULL,
+      approved_at timestamptz,
+      created_at  timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT vehicles_status_chk CHECK (status IN ('pending','approved','revoked')),
+      CONSTRAINT vehicles_plate_province_key UNIQUE (plate, province)
+    )`);
+
+  await pool.query(`
+    ALTER TABLE detections
+      ADD COLUMN IF NOT EXISTS matched_vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS access_granted BOOLEAN NOT NULL DEFAULT false`);
+
   const adminUser = process.env.ADMIN_USER || "admin";
   const adminPass = process.env.ADMIN_PASSWORD || "admin1234";
   await pool.query(

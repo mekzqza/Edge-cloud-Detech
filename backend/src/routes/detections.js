@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { pool } = require("../db");
 const { requireAdmin } = require("../auth");
+const { buildWhere } = require("./detections-filter");
 
 const router = Router();
 
@@ -33,18 +34,23 @@ router.post("/detections", async (req, res) => {
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(b64, "base64"));
 
   const result = await pool.query(
-    "INSERT INTO detections (filename, plate, province, confidence, captured_at) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+    `INSERT INTO detections (filename, plate, province, confidence, captured_at, matched_vehicle_id, access_granted)
+     SELECT $1::text, $2::text, $3::text, $4::real, $5::timestamptz, v.id, v.id IS NOT NULL
+     FROM (SELECT 1) x
+     LEFT JOIN vehicles v ON v.plate = $2 AND v.province = $3 AND v.status = 'approved'
+     RETURNING *`,
     [filename, plate, province, confidence, captured_at ?? null],
   );
   res.status(201).json(result.rows[0]);
 });
 
-// ไม่ส่ง limit = ได้ array ทั้งหมดเหมือนเดิม (ของเก่ายังเรียกแบบนี้อยู่)
-// ส่ง ?limit=&offset=&unverified=1 = ได้ { rows, total, unverified } สำหรับแบ่งหน้า
 router.get("/detections", async (req, res) => {
+  const { where, params } = buildWhere(req.query);
+
   if (req.query.limit == null) {
     const result = await pool.query(
-      "SELECT * FROM detections ORDER BY id DESC",
+      `SELECT * FROM detections ${where} ORDER BY id DESC`,
+      params,
     );
     return res.json(result.rows);
   }
@@ -63,20 +69,24 @@ router.get("/detections", async (req, res) => {
       .json({ error: "limit (1..100) / offset ไม่ถูกต้อง" });
   }
 
-  const where = req.query.unverified === "1" ? "WHERE NOT verified" : "";
+  // ยอดนับต้องอยู่ในขอบเขตวันที่/ป้ายเดียวกับหน้าที่ขอ แต่ไม่กรอง unverified
+  // ไม่งั้นแท็บ "ทั้งหมด" จะหายไป และเลขหน้าคำนวณผิด
+  const base = buildWhere({ date: req.query.date, plate: req.query.plate });
+
+  const n = params.length;
   const [page, counts] = await Promise.all([
     pool.query(
-      `SELECT * FROM detections ${where} ORDER BY id DESC LIMIT $1 OFFSET $2`,
-      [limit, offset],
+      `SELECT * FROM detections ${where} ORDER BY id DESC LIMIT $${n + 1} OFFSET $${n + 2}`,
+      [...params, limit, offset],
     ),
     pool.query(
-      "SELECT count(*)::int AS total, count(*) FILTER (WHERE NOT verified)::int AS unverified FROM detections",
+      `SELECT count(*)::int AS total, count(*) FILTER (WHERE NOT verified)::int AS unverified FROM detections ${base.where}`,
+      base.params,
     ),
   ]);
   res.json({ rows: page.rows, ...counts.rows[0] });
 });
 
-// ค้นด้วยเลขทะเบียน (ตรงตัวหรือบางส่วน) — หน้า /history เอาไปจับกลุ่มเป็นรอบเข้า-ออก
 router.get("/detections/plate/:plate", async (req, res) => {
   const q = String(req.params.plate).trim();
   if (!q) return res.status(400).json({ error: "ระบุเลขทะเบียน" });
