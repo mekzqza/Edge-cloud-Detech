@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Lightbox from "@/app/Lightbox";
+import Plate from "@/app/Plate";
 import { pageList } from "@/lib/pagination";
 import type { Detection } from "@/types";
 
@@ -19,18 +20,6 @@ const plateFilters = [
   { key: "ok", label: "อ่านป้ายได้" },
   { key: "unread", label: "อ่านไม่ออก" },
 ];
-
-// ป้ายทะเบียนจำลอง — เลขทะเบียนบรรทัดบน จังหวัดบรรทัดล่าง กรอบดำพื้นขาวเหมือนป้ายจริง
-function Plate({ plate, province }: { plate: string; province: string | null }) {
-  return (
-    <span className="inline-flex flex-col items-center rounded-[5px] border-2 border-ink bg-white px-3 py-1 leading-none shadow-[inset_0_0_0_2px_#fff]">
-      <span className="font-mono text-base font-medium tracking-[0.12em] text-ink">
-        {plate}
-      </span>
-      {province && <span className="mt-1 text-[10px] text-ink">{province}</span>}
-    </span>
-  );
-}
 
 // บันทึกรถเข้า — รายการรถที่กล้องตรวจจับได้ เรียงล่าสุดก่อน แบ่งหน้าจาก backend
 export default function RecordsList({

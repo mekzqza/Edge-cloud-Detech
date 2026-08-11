@@ -1,6 +1,6 @@
 // โครงข้อมูล 1 รายการตรวจจับ ที่ backend ส่งกลับมา
 
-export type Status = "pending" | "approved";
+export type Status = "pending" | "approved" | "revoked";
 
 export type Detection = {
   id: number;
@@ -13,11 +13,11 @@ export type Detection = {
   verified: boolean | null;
 };
 
-export type vehicle = {
+export type Vehicle = {
   id: number;
   plate: string;
   province: string;
   owner_id: number;
-  status: string;
+  status: Status;
   created_at: string;
 };
