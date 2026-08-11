@@ -77,10 +77,18 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function requireUser(req, res, next) {
+  const user = authUser(req);
+  if (!user) return res.status(401).json({ error: "ต้อง login ก่อน" });
+  req.user = user;
+  next();
+}
+
 module.exports = {
   hashPassword,
   verifyPassword,
   signToken,
   verifyToken,
   requireAdmin,
+  requireUser,
 };
