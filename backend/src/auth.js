@@ -77,11 +77,23 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-function requireUser(req, res, next) {
-  const user = authUser(req);
-  if (!user) return res.status(401).json({ error: "ต้อง login ก่อน" });
-  req.user = user;
-  next();
+// token มีแค่ { username, role } — route ที่ต้องใช้ owner_id เลยต้องแลกเป็น id ที่นี่
+// ponytail: require ข้างในฟังก์ชันกัน circular (db.js require ไฟล์นี้ตอนโหลด)
+async function requireUser(req, res, next) {
+  const claims = authUser(req);
+  if (!claims) return res.status(401).json({ error: "ต้อง login ก่อน" });
+  try {
+    const { pool } = require("./db");
+    const { rows } = await pool.query(
+      "SELECT id, username, role FROM users WHERE username = $1",
+      [claims.username],
+    );
+    if (!rows[0]) return res.status(401).json({ error: "ต้อง login ก่อน" });
+    req.user = rows[0];
+    next();
+  } catch (e) {
+    next(e);
+  }
 }
 
 module.exports = {
