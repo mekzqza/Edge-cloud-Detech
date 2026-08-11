@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Plate from "@/app/Plate";
-import type { Status, Vehicle } from "@/types";
+import StatusBadge from "@/app/StatusBadge";
+import type { Vehicle } from "@/types";
 
 // 77 จังหวัด — ให้เลือกจาก select ไม่ให้พิมพ์เอง เพราะ backend จับคู่ป้ายกับจังหวัดแบบตรงตัว
 // ponytail: string เดียว split เอา ไม่ต้องมีไฟล์ data แยก
@@ -16,14 +17,6 @@ const PROVINCES =
    สุราษฎร์ธานี สุรินทร์ หนองคาย หนองบัวลำภู อ่างทอง อำนาจเจริญ อุดรธานี อุตรดิตถ์ อุทัยธานี อุบลราชธานี`
     .trim()
     .split(/\s+/);
-
-const STATUS: Record<Status, { label: string; className: string }> = {
-  pending: { label: "รออนุมัติ", className: "bg-warn-soft text-warn" },
-  approved: { label: "อนุมัติแล้ว", className: "bg-success-soft text-success" },
-  revoked: { label: "ถูกระงับ", className: "bg-danger-soft text-danger" },
-};
-
-const badge = (s: Status) => STATUS[s] ?? STATUS.pending;
 
 // ช่องกรอกทะเบียน+จังหวัด ใช้ทั้งฟอร์มเพิ่มและฟอร์มแก้ไข — พ่อแม่เป็นคนคุมว่าจะเรียงแถวหรือซ้อน
 function PlateFields({
@@ -233,11 +226,7 @@ export default function VehiclesList({ token }: { token: string }) {
               >
                 <Plate plate={v.plate} province={v.province} />
 
-                <span
-                  className={`rounded px-2 py-0.5 text-[11px] ${badge(v.status).className}`}
-                >
-                  {badge(v.status).label}
-                </span>
+                <StatusBadge status={v.status} />
 
                 <div className="flex w-full items-baseline justify-between text-xs text-ink-muted">
                   <time dateTime={v.created_at}>

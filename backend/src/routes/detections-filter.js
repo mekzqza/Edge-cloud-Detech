@@ -8,7 +8,11 @@ function buildWhere(q) {
   if (q.unverified === "1") cond.push("NOT verified");
   if (q.plate === "ok") cond.push("plate IS NOT NULL AND plate <> ''");
   if (q.plate === "unread") cond.push("(plate IS NULL OR plate = '')");
-  if (/^\d{4}-\d{2}-\d{2}$/.test(String(q.date ?? ""))) {
+  // "2026-13-99" ผ่าน regex แต่ ::date ใน SQL จะระเบิดเป็น 500 เลยต้องเช็คว่าเป็นวันจริง
+  if (
+    /^\d{4}-\d{2}-\d{2}$/.test(String(q.date ?? "")) &&
+    !Number.isNaN(Date.parse(q.date))
+  ) {
     params.push(q.date);
     cond.push(
       `(created_at AT TIME ZONE 'Asia/Bangkok')::date = $${params.length}::date`,

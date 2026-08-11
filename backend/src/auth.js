@@ -68,28 +68,38 @@ function authUser(req) {
   return token ? verifyToken(token) : null;
 }
 
-function requireAdmin(req, res, next) {
-  const user = authUser(req);
-  if (!user) return res.status(401).json({ error: "ต้อง login ก่อน" });
-  if (user.role !== "admin")
-    return res.status(403).json({ error: "ต้องเป็น admin" });
-  req.user = user;
-  next();
+// token มีแค่ { username, role } — route ที่ต้องใช้ id (owner_id/approved_by) เลยต้อง
+// แลกเป็นแถวจริงใน DB ที่นี่ แถมได้ role ล่าสุดด้วย ไม่ใช่ role ตอนออก token
+// ponytail: require ข้างในฟังก์ชันกัน circular (db.js require ไฟล์นี้ตอนโหลด)
+async function loadUser(req) {
+  const claims = authUser(req);
+  if (!claims) return null;
+  const { pool } = require("./db");
+  const { rows } = await pool.query(
+    "SELECT id, username, role FROM users WHERE username = $1",
+    [claims.username],
+  );
+  return rows[0] ?? null;
 }
 
-// token มีแค่ { username, role } — route ที่ต้องใช้ owner_id เลยต้องแลกเป็น id ที่นี่
-// ponytail: require ข้างในฟังก์ชันกัน circular (db.js require ไฟล์นี้ตอนโหลด)
 async function requireUser(req, res, next) {
-  const claims = authUser(req);
-  if (!claims) return res.status(401).json({ error: "ต้อง login ก่อน" });
   try {
-    const { pool } = require("./db");
-    const { rows } = await pool.query(
-      "SELECT id, username, role FROM users WHERE username = $1",
-      [claims.username],
-    );
-    if (!rows[0]) return res.status(401).json({ error: "ต้อง login ก่อน" });
-    req.user = rows[0];
+    const user = await loadUser(req);
+    if (!user) return res.status(401).json({ error: "ต้อง login ก่อน" });
+    req.user = user;
+    next();
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function requireAdmin(req, res, next) {
+  try {
+    const user = await loadUser(req);
+    if (!user) return res.status(401).json({ error: "ต้อง login ก่อน" });
+    if (user.role !== "admin")
+      return res.status(403).json({ error: "ต้องเป็น admin" });
+    req.user = user;
     next();
   } catch (e) {
     next(e);
