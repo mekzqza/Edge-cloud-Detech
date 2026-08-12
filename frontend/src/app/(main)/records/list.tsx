@@ -21,14 +21,18 @@ const plateFilters = [
   { key: "unread", label: "อ่านไม่ออก" },
 ];
 
-// บันทึกรถเข้า — รายการรถที่กล้องตรวจจับได้ เรียงล่าสุดก่อน แบ่งหน้าจาก backend
+// รายการรถที่กล้องตรวจจับได้ เรียงล่าสุดก่อน แบ่งหน้าจาก backend
+// direction: "out" = เฉพาะกล้องขาออก, ไม่ใส่ = ทุกทิศทาง (รวมแถวเก่าที่ยังเป็น unknown)
 export default function RecordsList({
   isAdmin,
   token,
+  direction,
 }: {
   isAdmin: boolean;
   token: string;
+  direction?: "in" | "out";
 }) {
+  const noun = direction === "out" ? "รถออก" : "รถเข้า";
   const [data, setData] = useState<Page | null>(null);
   const [page, setPage] = useState(1);
   const [onlyUnverified, setOnlyUnverified] = useState(false);
@@ -45,11 +49,12 @@ export default function RecordsList({
         ...(onlyUnverified ? { unverified: "1" } : {}),
         ...(date ? { date } : {}),
         ...(plateFilter ? { plate: plateFilter } : {}),
+        ...(direction ? { direction } : {}),
       });
       const res = await fetch(`/api/detections?${q}`);
       setData(res.ok ? await res.json() : { rows: [], total: 0, unverified: 0 });
     });
-  }, [page, onlyUnverified, date, plateFilter]);
+  }, [page, onlyUnverified, date, plateFilter, direction]);
 
   useEffect(() => {
     load();
@@ -89,7 +94,7 @@ export default function RecordsList({
 
       <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border pb-4">
         <div>
-          <h1 className="text-lg font-medium">บันทึกรถเข้า</h1>
+          <h1 className="text-lg font-medium">บันทึก{noun}</h1>
           <p className="mt-0.5 text-xs text-ink-faint">
             {shownTotal > 0
               ? `${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, shownTotal)} จาก ${shownTotal} คัน`
@@ -180,7 +185,7 @@ export default function RecordsList({
             ? "ยืนยันครบทุกคันแล้ว"
             : date || plateFilter
               ? "ไม่มีรถที่ตรงกับตัวกรอง"
-              : "ยังไม่มีรถเข้า"}
+              : `ยังไม่มี${noun}`}
         </p>
       ) : (
         <div
