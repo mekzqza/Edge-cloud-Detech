@@ -76,7 +76,11 @@ router.get("/detections", async (req, res) => {
 
   // ยอดนับต้องอยู่ในขอบเขตวันที่/ป้ายเดียวกับหน้าที่ขอ แต่ไม่กรอง unverified
   // ไม่งั้นแท็บ "ทั้งหมด" จะหายไป และเลขหน้าคำนวณผิด
-  const base = buildWhere({ date: req.query.date, plate: req.query.plate });
+  const base = buildWhere({
+    date: req.query.date,
+    plate: req.query.plate,
+    direction: req.query.direction,
+  });
 
   const n = params.length;
   const [page, counts] = await Promise.all([

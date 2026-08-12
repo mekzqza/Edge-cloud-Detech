@@ -121,7 +121,10 @@ router.get(
       where("v.status = $?", status);
     }
     if (isDate(date)) {
-      where("(v.created_at AT TIME ZONE 'Asia/Bangkok')::date = $?::date", date);
+      where(
+        "(v.created_at AT TIME ZONE 'Asia/Bangkok')::date = $?::date",
+        date,
+      );
     }
     if (typeof q === "string" && q.trim()) {
       where("u.username ILIKE $?", `%${q.trim()}%`);
@@ -157,7 +160,9 @@ router.patch(
     }
     const { status } = req.body;
     if (status !== "approved" && status !== "revoked") {
-      return res.status(400).json({ error: "status ต้องเป็น approved หรือ revoked" });
+      return res
+        .status(400)
+        .json({ error: "status ต้องเป็น approved หรือ revoked" });
     }
 
     const { rows } = await pool.query(
