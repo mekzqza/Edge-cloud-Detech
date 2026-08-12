@@ -240,7 +240,12 @@ export default function RecordsList({
                     </span>
                   )}
                 </div>
-                <div className="mt-3 flex items-baseline justify-between text-xs text-ink-muted">
+                <div className="mt-3 flex items-baseline justify-between gap-2 text-xs text-ink-muted">
+                  {d.direction !== "unknown" && (
+                    <span className="rounded bg-surface-muted px-1.5 py-0.5">
+                      {d.direction === "in" ? "เข้า" : "ออก"}
+                    </span>
+                  )}
                   <time dateTime={d.created_at}>
                     {new Date(d.created_at).toLocaleString("th-TH", {
                       day: "numeric",

@@ -53,6 +53,12 @@ async function initDb() {
       ADD COLUMN IF NOT EXISTS matched_vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE SET NULL,
       ADD COLUMN IF NOT EXISTS access_granted BOOLEAN NOT NULL DEFAULT false`);
 
+  // เข้า/ออก มาจาก pk กล้องที่ Pi ส่งมา — แถวเก่า (กล้องตัวเดียว) เป็น 'unknown'
+  await pool.query(`
+    ALTER TABLE detections
+      ADD COLUMN IF NOT EXISTS direction TEXT NOT NULL DEFAULT 'unknown'
+      CHECK (direction IN ('in','out','unknown'))`);
+
   const adminUser = process.env.ADMIN_USER || "admin";
   const adminPass = process.env.ADMIN_PASSWORD || "admin1234";
   await pool.query(

@@ -11,8 +11,11 @@ const router = Router();
 const UPLOAD_DIR = path.join(__dirname, "../../uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
+// pk กล้องที่ Pi ส่งมา → ทิศทาง; ค่าอื่นหรือไม่ส่งมา = unknown
+const DIRECTION = { IN: "in", OUT: "out" };
+
 router.post("/detections", async (req, res) => {
-  const { image, plate, province, confidence, captured_at } = req.body;
+  const { image, plate, province, confidence, captured_at, camera } = req.body;
   if (
     typeof image !== "string" ||
     typeof plate !== "string" ||
@@ -33,13 +36,15 @@ router.post("/detections", async (req, res) => {
   const filename = `${Date.now()}.jpg`;
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(b64, "base64"));
 
+  const direction = DIRECTION[String(camera ?? "").toUpperCase()] ?? "unknown";
+
   const result = await pool.query(
-    `INSERT INTO detections (filename, plate, province, confidence, captured_at, matched_vehicle_id, access_granted)
-     SELECT $1::text, $2::text, $3::text, $4::real, $5::timestamptz, v.id, v.id IS NOT NULL
+    `INSERT INTO detections (filename, plate, province, confidence, captured_at, direction, matched_vehicle_id, access_granted)
+     SELECT $1::text, $2::text, $3::text, $4::real, $5::timestamptz, $6::text, v.id, v.id IS NOT NULL
      FROM (SELECT 1) x
      LEFT JOIN vehicles v ON v.plate = $2 AND v.province = $3 AND v.status = 'approved'
      RETURNING *`,
-    [filename, plate, province, confidence, captured_at ?? null],
+    [filename, plate, province, confidence, captured_at ?? null, direction],
   );
   res.status(201).json(result.rows[0]);
 });

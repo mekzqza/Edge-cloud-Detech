@@ -11,6 +11,7 @@ export type Detection = {
   province: string | null;
   confidence: number | null;
   verified: boolean | null;
+  direction: "in" | "out" | "unknown";
 };
 
 export type Vehicle = {

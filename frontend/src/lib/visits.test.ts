@@ -13,6 +13,7 @@ const at = (min: number, plate: string): Detection => ({
   plate,
   province: null,
   confidence: 0.9,
+  direction: "unknown",
   verified: false,
 });
 
