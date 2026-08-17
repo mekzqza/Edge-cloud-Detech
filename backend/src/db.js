@@ -48,6 +48,13 @@ async function initDb() {
       CONSTRAINT vehicles_plate_province_key UNIQUE (plate, province)
     )`);
 
+  // เลขในป้ายเป็น blocking key ของ fuzzy match — generated ไว้เลยไม่มีทางหลุด sync กับ plate
+  await pool.query(`
+    ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS plate_digits text
+      GENERATED ALWAYS AS (regexp_replace(plate, '[^0-9]', '', 'g')) STORED`);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS vehicles_plate_digits_idx ON vehicles (plate_digits)`);
+
   await pool.query(`
     ALTER TABLE detections
       ADD COLUMN IF NOT EXISTS matched_vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE SET NULL,

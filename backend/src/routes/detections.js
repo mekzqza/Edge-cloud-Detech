@@ -4,6 +4,7 @@ const path = require("path");
 const { pool } = require("../db");
 const { requireAdmin } = require("../auth");
 const { buildWhere } = require("./detections-filter");
+const { matchVehicle, isUnknownProvince } = require("./detections-match");
 
 const router = Router();
 
@@ -38,13 +39,25 @@ router.post("/detections", async (req, res) => {
 
   const direction = DIRECTION[String(camera ?? "").toUpperCase()] ?? "unknown";
 
+  const match = await matchVehicle(pool, plate, province);
+
+  // Pi อ่านจังหวัดไม่ออก แต่จับคู่รถได้ → ใช้จังหวัดที่เจ้าของลงทะเบียนไว้แทน
+  const finalProvince =
+    match && isUnknownProvince(province) ? match.province : province;
+
   const result = await pool.query(
     `INSERT INTO detections (filename, plate, province, confidence, captured_at, direction, matched_vehicle_id, access_granted)
-     SELECT $1::text, $2::text, $3::text, $4::real, $5::timestamptz, $6::text, v.id, v.id IS NOT NULL
-     FROM (SELECT 1) x
-     LEFT JOIN vehicles v ON v.plate = $2 AND v.province = $3 AND v.status = 'approved'
+     VALUES ($1, $2, $3, $4, $5, $6, $7::int, $7::int IS NOT NULL)
      RETURNING *`,
-    [filename, plate, province, confidence, captured_at ?? null, direction],
+    [
+      filename,
+      plate,
+      finalProvince,
+      confidence,
+      captured_at ?? null,
+      direction,
+      match?.id ?? null,
+    ],
   );
   res.status(201).json(result.rows[0]);
 });
