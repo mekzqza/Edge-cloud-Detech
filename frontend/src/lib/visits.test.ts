@@ -15,6 +15,7 @@ const at = (min: number, plate: string): Detection => ({
   confidence: 0.9,
   direction: "unknown",
   verified: false,
+  access_granted: false,
 });
 
 test("ภาพติด ๆ กันของป้ายเดียว = 1 รอบ", () => {

@@ -74,7 +74,7 @@ router.get("/detections", async (req, res) => {
       .json({ error: "limit (1..100) / offset ไม่ถูกต้อง" });
   }
 
-  // ยอดนับต้องอยู่ในขอบเขตวันที่/ป้ายเดียวกับหน้าที่ขอ แต่ไม่กรอง unverified
+  // ยอดนับต้องอยู่ในขอบเขตวันที่/ป้ายเดียวกับหน้าที่ขอ แต่ไม่กรอง denied
   // ไม่งั้นแท็บ "ทั้งหมด" จะหายไป และเลขหน้าคำนวณผิด
   const base = buildWhere({
     date: req.query.date,
@@ -89,7 +89,7 @@ router.get("/detections", async (req, res) => {
       [...params, limit, offset],
     ),
     pool.query(
-      `SELECT count(*)::int AS total, count(*) FILTER (WHERE NOT verified)::int AS unverified FROM detections ${base.where}`,
+      `SELECT count(*)::int AS total, count(*) FILTER (WHERE NOT access_granted)::int AS denied FROM detections ${base.where}`,
       base.params,
     ),
   ]);

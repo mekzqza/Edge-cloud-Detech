@@ -6,7 +6,6 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: "10mb" })); // limit สูงขึ้นเพราะรูป base64 ตัวใหญ่
-app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // เสิร์ฟรูปที่ Pi ส่งมา
 
 app.use("/api", require("./src/routes/auth"));

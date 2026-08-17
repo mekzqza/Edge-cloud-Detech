@@ -1,12 +1,12 @@
 // ตัวกรองร่วมของ GET /detections — แยกไฟล์ไว้เพื่อให้เทสต์เรียกได้โดยไม่ต้องโหลด pg/express
-//   unverified=1        เฉพาะที่ยังไม่ยืนยัน
+//   denied=1            เฉพาะที่ไม่ตรงกับรถที่อนุมัติไว้ (access_granted = false)
 //   plate=ok|unread     อ่านป้ายได้ / อ่านไม่ออก (ป้ายว่าง)
 //   date=YYYY-MM-DD     ตามวันที่เวลาไทย (created_at เป็น timestamptz)
 //   direction=in|out|unknown  ทิศทางจากกล้อง (ค่าอื่นไม่กรอง)
 function buildWhere(q) {
   const cond = [];
   const params = [];
-  if (q.unverified === "1") cond.push("NOT verified");
+  if (q.denied === "1") cond.push("NOT access_granted");
   if (["in", "out", "unknown"].includes(q.direction)) {
     params.push(q.direction);
     cond.push(`direction = $${params.length}`);

@@ -11,6 +11,7 @@ export type Detection = {
   province: string | null;
   confidence: number | null;
   verified: boolean | null;
+  access_granted: boolean; // ตรงกับ vehicles ที่ approved ไหม — คิดตอนบันทึก ไม่คำนวณใหม่
   direction: "in" | "out" | "unknown";
 };
 
