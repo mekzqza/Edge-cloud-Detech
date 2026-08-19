@@ -43,6 +43,12 @@ export default function VehicleRequests({ token }: { token: string }) {
     return () => clearTimeout(t);
   }, [load]);
 
+  // นำเข้า CSV เสร็จแล้วตารางต้องอัปเดตเอง — ImportCsv เป็น component พี่น้องกัน
+  useEffect(() => {
+    window.addEventListener("vehicles-imported", load);
+    return () => window.removeEventListener("vehicles-imported", load);
+  }, [load]);
+
   async function decide(v: AdminVehicle, next: Status) {
     setError("");
     const res = await fetch(`/api/admin/vehicles/${v.id}`, {

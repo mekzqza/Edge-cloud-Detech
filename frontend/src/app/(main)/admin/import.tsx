@@ -13,31 +13,51 @@ type Result = {
 export default function ImportCsv({ token }: { token: string }) {
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [over, setOver] = useState(false);
+  const busy = progress !== null;
 
-  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // เคลียร์ก่อน เลือกไฟล์ชื่อเดิมซ้ำจะได้ยิงใหม่ ไม่ใช่เงียบ
-    if (!file) return;
-
+  // XHR ไม่ใช่ fetch เพราะ fetch ไม่บอกความคืบหน้าตอนอัปโหลด
+  function send(file?: File | null) {
+    if (!file || busy) return;
     setError("");
     setResult(null);
-    setBusy(true);
-    try {
-      const res = await fetch("/api/admin/vehicles/import", {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/csv",
-          Authorization: `Bearer ${token}`,
-        },
-        body: await file.text(),
-      });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) return setError(body?.error ?? "นำเข้าไม่สำเร็จ");
-      setResult(body);
-    } finally {
-      setBusy(false);
-    }
+    setProgress(0);
+
+    file.text().then((text) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/admin/vehicles/import");
+      xhr.setRequestHeader("Content-Type", "text/csv");
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          setProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+      xhr.onload = () => {
+        setProgress(null);
+        const body = (() => {
+          try {
+            return JSON.parse(xhr.responseText);
+          } catch {
+            return null;
+          }
+        })();
+        if (xhr.status >= 400 || !body) {
+          return setError(body?.error ?? "นำเข้าไม่สำเร็จ");
+        }
+        setResult(body);
+        // ตารางคำขอเป็น component พี่น้องกัน — ยิง event แทนยก state ขึ้นไปที่ page.tsx
+        // ซึ่งเป็น server component (จะต้องแปลงเป็น client ทั้งหน้าเพื่อ refresh ตารางเดียว)
+        window.dispatchEvent(new Event("vehicles-imported"));
+      };
+      xhr.onerror = () => {
+        setProgress(null);
+        setError("เชื่อมต่อ backend ไม่ได้");
+      };
+      xhr.send(text);
+    });
   }
 
   return (
@@ -50,20 +70,60 @@ export default function ImportCsv({ token }: { token: string }) {
         </p>
       </header>
 
-      <div className="mt-4 flex flex-wrap items-center gap-4">
-        {/* ponytail: input[type=file] ของเบราว์เซอร์พอแล้ว ไม่ต้องทำโซนลากวาง */}
-        <label className="cursor-pointer rounded-md border border-border bg-surface px-3 py-1.5 text-sm transition-colors hover:bg-surface-muted focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink">
-          เลือกไฟล์ CSV
+      <div
+        onDragOver={(e) => {
+          e.preventDefault(); // ไม่กันไว้ เบราว์เซอร์จะเปิดไฟล์แทนที่จะ drop ลงหน้า
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setOver(false);
+          send(e.dataTransfer.files[0]);
+        }}
+        className={`mt-4 max-w-2xl rounded-lg border border-dashed p-6 text-center text-sm transition-colors ${
+          over ? "border-ink bg-surface-muted" : "border-border bg-surface"
+        } ${busy ? "opacity-50" : ""}`}
+      >
+        <p className="text-ink-muted">ลากไฟล์ CSV มาวางที่นี่ หรือ</p>
+        <label className="mt-3 inline-block cursor-pointer rounded-md border border-border bg-surface px-3 py-1.5 transition-colors hover:bg-surface-muted focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink">
+          เลือกไฟล์
           <input
             type="file"
             accept=".csv,text/csv"
             disabled={busy}
-            onChange={upload}
+            onChange={(e) => {
+              send(e.target.files?.[0]);
+              e.target.value = ""; // เคลียร์ก่อน เลือกไฟล์ชื่อเดิมซ้ำจะได้ยิงใหม่ ไม่ใช่เงียบ
+            }}
             className="sr-only"
           />
         </label>
-        {busy && <span className="text-sm text-ink-faint">กำลังนำเข้า…</span>}
       </div>
+
+      {busy && (
+        <div className="mt-4 max-w-2xl">
+          <div
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="ความคืบหน้าการนำเข้า"
+            className="h-1.5 overflow-hidden rounded-full bg-surface-muted"
+          >
+            <div
+              className="h-full bg-ink transition-[width] duration-150"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          {/* อัปโหลดครบแล้วยังไม่จบ — backend ยัง insert อยู่ วัดเป็น % ไม่ได้ */}
+          <p className="mt-1 text-xs text-ink-faint">
+            {progress! < 100
+              ? `กำลังอัปโหลด ${progress}%`
+              : "กำลังบันทึกลงฐานข้อมูล…"}
+          </p>
+        </div>
+      )}
 
       {error && (
         <p role="alert" className="mt-4 text-sm text-danger">
