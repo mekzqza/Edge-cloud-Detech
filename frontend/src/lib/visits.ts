@@ -8,8 +8,10 @@ export type Visit = {
   filename: string; // ภาพแรก ใช้ทำ thumbnail
 };
 
-// DB เก็บแค่ "เห็นรถตอนไหน" ไม่มีคอลัมน์เข้า/ออก — ภาพที่ถ่ายติด ๆ กันของป้ายเดียวกัน
-// จึงนับเป็นการเข้ามา 1 รอบ; ห่างจากภาพก่อนหน้าเกิน gapMin ถือว่าเป็นรอบใหม่
+// ภาพที่ถ่ายติด ๆ กันของป้ายเดียวกันนับเป็นการเข้ามา 1 รอบ; ห่างจากภาพก่อนหน้า
+// เกิน gapMin ถือว่าเป็นรอบใหม่
+// ponytail: ยังจับคู่รอบด้วยเวลาเหมือนเดิม — DB มีคอลัมน์ direction (in/out) แล้ว
+// ถ้าอยากได้เวลาเข้า/ออกจริงค่อยเปลี่ยนมาจับคู่ direction ทีหลัง
 export function groupVisits(rows: Detection[], gapMin: number): Visit[] {
   const gap = gapMin * 60_000;
   const byPlate = new Map<string, Detection[]>();

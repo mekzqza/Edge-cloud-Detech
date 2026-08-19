@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Lightbox from "@/app/Lightbox";
+import Plate from "@/app/Plate";
 import { pageList } from "@/lib/pagination";
 import type { Detection } from "@/types";
 
@@ -11,7 +12,7 @@ const PAGE_WINDOW = 2; // แสดงเลขหน้ารอบหน้า
 const CARD_MIN_WIDTH = 220; // ความกว้างขั้นต่ำของการ์ด (px) — กริดจัดคอลัมน์เองตามจอ
 /* ========================= */
 
-type Page = { rows: Detection[]; total: number; unverified: number };
+type Page = { rows: Detection[]; total: number; denied: number };
 
 // ตัวกรองผลอ่านป้าย — "" = ไม่กรอง
 const plateFilters = [
@@ -20,29 +21,17 @@ const plateFilters = [
   { key: "unread", label: "อ่านไม่ออก" },
 ];
 
-// ป้ายทะเบียนจำลอง — เลขทะเบียนบรรทัดบน จังหวัดบรรทัดล่าง กรอบดำพื้นขาวเหมือนป้ายจริง
-function Plate({ plate, province }: { plate: string; province: string | null }) {
-  return (
-    <span className="inline-flex flex-col items-center rounded-[5px] border-2 border-ink bg-white px-3 py-1 leading-none shadow-[inset_0_0_0_2px_#fff]">
-      <span className="font-mono text-base font-medium tracking-[0.12em] text-ink">
-        {plate}
-      </span>
-      {province && <span className="mt-1 text-[10px] text-ink">{province}</span>}
-    </span>
-  );
-}
-
-// บันทึกรถเข้า — รายการรถที่กล้องตรวจจับได้ เรียงล่าสุดก่อน แบ่งหน้าจาก backend
+// รายการรถที่กล้องตรวจจับได้ เรียงล่าสุดก่อน แบ่งหน้าจาก backend
+// direction: "out" = เฉพาะกล้องขาออก, ไม่ใส่ = ทุกทิศทาง (รวมแถวเก่าที่ยังเป็น unknown)
 export default function RecordsList({
-  isAdmin,
-  token,
+  direction,
 }: {
-  isAdmin: boolean;
-  token: string;
+  direction?: "in" | "out";
 }) {
+  const noun = direction === "out" ? "รถออก" : "รถเข้า";
   const [data, setData] = useState<Page | null>(null);
   const [page, setPage] = useState(1);
-  const [onlyUnverified, setOnlyUnverified] = useState(false);
+  const [onlyDenied, setOnlyDenied] = useState(false);
   const [date, setDate] = useState(""); // "" = ทุกวัน
   const [plateFilter, setPlateFilter] = useState("");
   const [zoom, setZoom] = useState<string | null>(null); // รูปที่กำลังดูเต็มจอ
@@ -53,40 +42,27 @@ export default function RecordsList({
       const q = new URLSearchParams({
         limit: String(PER_PAGE),
         offset: String((page - 1) * PER_PAGE),
-        ...(onlyUnverified ? { unverified: "1" } : {}),
+        ...(onlyDenied ? { denied: "1" } : {}),
         ...(date ? { date } : {}),
         ...(plateFilter ? { plate: plateFilter } : {}),
+        ...(direction ? { direction } : {}),
       });
       const res = await fetch(`/api/detections?${q}`);
-      setData(res.ok ? await res.json() : { rows: [], total: 0, unverified: 0 });
+      setData(res.ok ? await res.json() : { rows: [], total: 0, denied: 0 });
     });
-  }, [page, onlyUnverified, date, plateFilter]);
+  }, [page, onlyDenied, date, plateFilter, direction]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  // ยืนยัน/ยกเลิกยืนยัน (admin เท่านั้น — backend เช็คซ้ำด้วย requireAdmin)
-  async function setVerified(id: number, verified: boolean) {
-    const res = await fetch(`/api/detections/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ verified }),
-    });
-    if (!res.ok) return alert("บันทึกไม่สำเร็จ");
-    load();
-  }
-
   const rows = data?.rows ?? [];
-  const shownTotal = onlyUnverified ? (data?.unverified ?? 0) : (data?.total ?? 0);
+  const shownTotal = onlyDenied ? (data?.denied ?? 0) : (data?.total ?? 0);
   const lastPage = Math.max(1, Math.ceil(shownTotal / PER_PAGE));
 
   const tabs = [
     { key: false, label: "ทั้งหมด", count: data?.total },
-    { key: true, label: "ยังไม่ยืนยัน", count: data?.unverified },
+    { key: true, label: "ไม่มีสิทธิ์", count: data?.denied },
   ];
 
   function go(p: number) {
@@ -100,7 +76,7 @@ export default function RecordsList({
 
       <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border pb-4">
         <div>
-          <h1 className="text-lg font-medium">บันทึกรถเข้า</h1>
+          <h1 className="text-lg font-medium">บันทึก{noun}</h1>
           <p className="mt-0.5 text-xs text-ink-faint">
             {shownTotal > 0
               ? `${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, shownTotal)} จาก ${shownTotal} คัน`
@@ -113,11 +89,11 @@ export default function RecordsList({
             <button
               key={String(t.key)}
               onClick={() => {
-                setOnlyUnverified(t.key);
+                setOnlyDenied(t.key);
                 setPage(1);
               }}
               className={`rounded-[6px] px-3 py-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
-                onlyUnverified === t.key
+                onlyDenied === t.key
                   ? "bg-ink text-surface"
                   : "text-ink-muted hover:text-ink"
               }`}
@@ -187,11 +163,11 @@ export default function RecordsList({
         <p className="mt-8 text-sm text-ink-faint">กำลังโหลด…</p>
       ) : rows.length === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">
-          {onlyUnverified
-            ? "ยืนยันครบทุกคันแล้ว"
+          {onlyDenied
+            ? "ทุกคันมีสิทธิ์เข้า"
             : date || plateFilter
               ? "ไม่มีรถที่ตรงกับตัวกรอง"
-              : "ยังไม่มีรถเข้า"}
+              : `ยังไม่มี${noun}`}
         </p>
       ) : (
         <div
@@ -204,7 +180,7 @@ export default function RecordsList({
             <figure
               key={d.id}
               className={`group overflow-hidden rounded-lg border bg-surface shadow-[0_1px_2px_rgba(31,30,26,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(31,30,26,0.10)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
-                d.verified
+                d.access_granted
                   ? "border-border"
                   : "border-border border-l-2 border-l-danger"
               }`}
@@ -223,11 +199,15 @@ export default function RecordsList({
                     className="block aspect-[4/3] w-full bg-surface-muted object-cover"
                   />
                 </button>
-                {!d.verified && (
-                  <span className="absolute left-2 top-2 rounded bg-danger-soft px-1.5 py-0.5 text-[10px] text-danger">
-                    ยังไม่ยืนยัน
-                  </span>
-                )}
+                <span
+                  className={`absolute left-2 top-2 rounded px-1.5 py-0.5 text-[10px] ${
+                    d.access_granted
+                      ? "bg-success-soft text-success"
+                      : "bg-danger-soft text-danger"
+                  }`}
+                >
+                  {d.access_granted ? "มีสิทธิ์" : "ไม่มีสิทธิ์"}
+                </span>
 
                 {/* โหลดรูปลงเครื่อง — /uploads เป็น origin เดียวกัน แอตทริบิวต์ download เลยใช้ได้เลย */}
                 <a
@@ -251,7 +231,12 @@ export default function RecordsList({
                     </span>
                   )}
                 </div>
-                <div className="mt-3 flex items-baseline justify-between text-xs text-ink-muted">
+                <div className="mt-3 flex items-baseline justify-between gap-2 text-xs text-ink-muted">
+                  {d.direction !== "unknown" && (
+                    <span className="rounded bg-surface-muted px-1.5 py-0.5">
+                      {d.direction === "in" ? "เข้า" : "ออก"}
+                    </span>
+                  )}
                   <time dateTime={d.created_at}>
                     {new Date(d.created_at).toLocaleString("th-TH", {
                       day: "numeric",
@@ -266,19 +251,6 @@ export default function RecordsList({
                     </span>
                   )}
                 </div>
-
-                {isAdmin && (
-                  <button
-                    onClick={() => setVerified(d.id, !d.verified)}
-                    className={`mt-3 w-full rounded-md border px-2 py-1.5 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
-                      d.verified
-                        ? "border-border bg-surface text-ink-faint hover:text-ink"
-                        : "border-success bg-success-soft text-success hover:bg-success hover:text-surface"
-                    }`}
-                  >
-                    {d.verified ? "✓ ยืนยันแล้ว" : "ยืนยัน"}
-                  </button>
-                )}
               </figcaption>
             </figure>
           ))}

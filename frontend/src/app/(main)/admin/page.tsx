@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
+import VehicleRequests from "./requests";
 
-// ponytail: หน้านี้ยังเป็นแค่ข้อมูลบัญชี — งานจัดการ (แก้ไข/ลบรายการ) อยู่ในหน้าประวัติรถเข้า
-// เพิ่มฟีเจอร์จัดการ user ที่นี่เมื่อ backend มี endpoint ให้
+// จัดการระบบ — ข้อมูลบัญชี + คำขอเพิ่มรถ (เห็นเฉพาะ admin, backend เช็คซ้ำด้วย requireAdmin)
 export default async function AdminPage() {
   const session = await auth();
   const isAdmin = session?.user.role === "admin";
@@ -29,6 +29,10 @@ export default async function AdminPage() {
             : "ต้องเป็น admin จึงจะแก้ไข/ลบรายการได้"}
         </p>
       </div>
+
+      {isAdmin && (
+        <VehicleRequests token={session?.user.backendToken ?? ""} />
+      )}
     </div>
   );
 }

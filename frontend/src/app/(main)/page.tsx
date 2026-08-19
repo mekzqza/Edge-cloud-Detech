@@ -75,7 +75,7 @@ export default function OverviewPage() {
     },
     {
       label: "รถแปลกปลอม",
-      value: detections?.filter((d) => !d.verified).length,
+      value: detections?.filter((d) => !d.access_granted).length,
       icon: <AlertIcon />,
       tone: "text-danger",
     },
@@ -234,12 +234,12 @@ export default function OverviewPage() {
                 </span>
                 <span
                   className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs ${
-                    d.verified
+                    d.access_granted
                       ? "bg-success-soft text-success"
                       : "bg-danger-soft text-danger"
                   }`}
                 >
-                  {d.verified ? "ปกติ" : "แปลกปลอม"}
+                  {d.access_granted ? "ปกติ" : "แปลกปลอม"}
                 </span>
               </li>
             ))}

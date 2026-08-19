@@ -4,6 +4,7 @@ const path = require("path");
 const { pool } = require("../db");
 const { requireAdmin } = require("../auth");
 const { buildWhere } = require("./detections-filter");
+const { matchVehicle, isUnknownProvince } = require("./detections-match");
 
 const router = Router();
 
@@ -11,8 +12,11 @@ const router = Router();
 const UPLOAD_DIR = path.join(__dirname, "../../uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
+// pk กล้องที่ Pi ส่งมา → ทิศทาง; ค่าอื่นหรือไม่ส่งมา = unknown
+const DIRECTION = { IN: "in", OUT: "out" };
+
 router.post("/detections", async (req, res) => {
-  const { image, plate, province, confidence, captured_at } = req.body;
+  const { image, plate, province, confidence, captured_at, camera } = req.body;
   if (
     typeof image !== "string" ||
     typeof plate !== "string" ||
@@ -33,13 +37,27 @@ router.post("/detections", async (req, res) => {
   const filename = `${Date.now()}.jpg`;
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.from(b64, "base64"));
 
+  const direction = DIRECTION[String(camera ?? "").toUpperCase()] ?? "unknown";
+
+  const match = await matchVehicle(pool, plate, province);
+
+  // Pi อ่านจังหวัดไม่ออก แต่จับคู่รถได้ → ใช้จังหวัดที่เจ้าของลงทะเบียนไว้แทน
+  const finalProvince =
+    match && isUnknownProvince(province) ? match.province : province;
+
   const result = await pool.query(
-    `INSERT INTO detections (filename, plate, province, confidence, captured_at, matched_vehicle_id, access_granted)
-     SELECT $1::text, $2::text, $3::text, $4::real, $5::timestamptz, v.id, v.id IS NOT NULL
-     FROM (SELECT 1) x
-     LEFT JOIN vehicles v ON v.plate = $2 AND v.province = $3 AND v.status = 'approved'
+    `INSERT INTO detections (filename, plate, province, confidence, captured_at, direction, matched_vehicle_id, access_granted)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::int, $7::int IS NOT NULL)
      RETURNING *`,
-    [filename, plate, province, confidence, captured_at ?? null],
+    [
+      filename,
+      plate,
+      finalProvince,
+      confidence,
+      captured_at ?? null,
+      direction,
+      match?.id ?? null,
+    ],
   );
   res.status(201).json(result.rows[0]);
 });
@@ -69,9 +87,13 @@ router.get("/detections", async (req, res) => {
       .json({ error: "limit (1..100) / offset ไม่ถูกต้อง" });
   }
 
-  // ยอดนับต้องอยู่ในขอบเขตวันที่/ป้ายเดียวกับหน้าที่ขอ แต่ไม่กรอง unverified
+  // ยอดนับต้องอยู่ในขอบเขตวันที่/ป้ายเดียวกับหน้าที่ขอ แต่ไม่กรอง denied
   // ไม่งั้นแท็บ "ทั้งหมด" จะหายไป และเลขหน้าคำนวณผิด
-  const base = buildWhere({ date: req.query.date, plate: req.query.plate });
+  const base = buildWhere({
+    date: req.query.date,
+    plate: req.query.plate,
+    direction: req.query.direction,
+  });
 
   const n = params.length;
   const [page, counts] = await Promise.all([
@@ -80,7 +102,7 @@ router.get("/detections", async (req, res) => {
       [...params, limit, offset],
     ),
     pool.query(
-      `SELECT count(*)::int AS total, count(*) FILTER (WHERE NOT verified)::int AS unverified FROM detections ${base.where}`,
+      `SELECT count(*)::int AS total, count(*) FILTER (WHERE NOT access_granted)::int AS denied FROM detections ${base.where}`,
       base.params,
     ),
   ]);
