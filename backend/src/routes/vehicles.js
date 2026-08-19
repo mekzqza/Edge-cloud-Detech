@@ -175,6 +175,29 @@ router.patch(
   }),
 );
 
+// ลบทิ้งได้เฉพาะคันที่ปฏิเสธไปแล้ว — pending/approved ต้องกดปฏิเสธก่อน กันลบพลาด
+router.delete(
+  "/admin/vehicles/:id",
+  requireAdmin,
+  h(async (req, res) => {
+    const vehicleId = Number(req.params.id);
+    if (!Number.isInteger(vehicleId)) {
+      return res.status(400).json({ error: "vehicle id ต้องเป็นตัวเลข" });
+    }
+
+    const { rows } = await pool.query(
+      `DELETE FROM vehicles WHERE id = $1 AND status = 'revoked' RETURNING id`,
+      [vehicleId],
+    );
+    if (!rows[0]) {
+      return res
+        .status(404)
+        .json({ error: "ไม่พบรถคันนี้ หรือยังไม่ถูกปฏิเสธ" });
+    }
+    return res.json({ message: "ลบคำขอนี้เรียบร้อยแล้ว" });
+  }),
+);
+
 // ponytail: split(",") พอสำหรับ ทะเบียน/จังหวัด/username ที่ไม่มีลูกน้ำ
 // เจอ CSV ที่มี quote หรือ comma ในค่า ค่อยเปลี่ยนไปใช้ csv-parse
 function parseCsv(text) {
@@ -189,9 +212,7 @@ function parseCsv(text) {
     .map((c) => c.trim().toLowerCase());
   return lines.map((line) => {
     const cells = line.split(",");
-    return Object.fromEntries(
-      cols.map((c, i) => [c, (cells[i] ?? "").trim()]),
-    );
+    return Object.fromEntries(cols.map((c, i) => [c, (cells[i] ?? "").trim()]));
   });
 }
 
