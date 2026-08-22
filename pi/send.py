@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import requests
 
 URL = "https://edge-cloud-detech.sukpat.dev/api/detections"
+CAMERA = "IN"   # กล้องตัวนี้เป็นขาเข้าหรือขาออก: "IN" / "OUT" (ไม่ส่ง = unknown)
 
 
 def send(image_path, plate, province, confidence):
@@ -17,6 +18,7 @@ def send(image_path, plate, province, confidence):
         "plate": plate,            # เลขทะเบียน
         "province": province,      # จังหวัด
         "confidence": confidence,  # ความแม่นยำ 0..1
+        "camera": CAMERA,          # ทิศทาง เข้า/ออก
         # เวลาที่ถ่าย/ส่ง — ISO8601 พร้อม timezone
         "captured_at": datetime.now(timezone.utc).isoformat(),
     })
