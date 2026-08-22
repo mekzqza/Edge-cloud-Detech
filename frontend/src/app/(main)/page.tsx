@@ -50,13 +50,20 @@ export default function OverviewPage() {
   }, [range]);
 
   const today = new Date().toDateString();
+  const todayRows = detections?.filter(
+    (d) => new Date(d.created_at).toDateString() === today,
+  );
   // ponytail: icon/tone เป็นแค่ของตกแต่ง — value/filter แก้ได้ตามสบาย
   const stats = [
     {
       label: "รถเข้าวันนี้",
-      value: detections?.filter(
-        (d) => new Date(d.created_at).toDateString() === today,
-      ).length,
+      value: todayRows?.filter((d) => d.direction === "in").length,
+      icon: <CarIcon />,
+      tone: "",
+    },
+    {
+      label: "รถออกวันนี้",
+      value: todayRows?.filter((d) => d.direction === "out").length,
       icon: <CarIcon />,
       tone: "",
     },
@@ -93,17 +100,6 @@ export default function OverviewPage() {
       ).length,
       icon: <HelpIcon />,
       tone: "",
-    },
-    {
-      // อ่านไม่ออกทั้ง 2 ฟิลด์
-      label: "อ่านไม่ได้",
-      value: detections?.filter(
-        (d) =>
-          (!d.plate || d.plate == "UNKNOWN") &&
-          (!d.province || d.province == "UNKNOWN"),
-      ).length,
-      icon: <HelpIcon />,
-      tone: "text-warn",
     },
   ];
 
