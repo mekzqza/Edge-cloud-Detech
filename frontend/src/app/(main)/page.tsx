@@ -6,17 +6,8 @@ import type { Detection } from "@/types";
 export default function OverviewPage() {
   const [detections, setDetections] = useState<Detection[] | null>(null);
   const [lastDetechtion, setLastDetection] = useState<Detection[] | null>(null);
-  const [time, setTime] = useState<number>(24);
   const [range, setRange] = useState<number>(1); // ช่วงกราฟ: 1/7/15/30 วัน
   const [chartRows, setChartRows] = useState<Detection[] | null>(null);
-
-  async function detecTionIn(hours: number) {
-    const res = await fetch(`/api/detections/time/${hours}`);
-    if (!res.ok) {
-      return [];
-    }
-    console.log("fetching detections in", hours, "hours");
-  }
 
   async function fetchDetections() {
     const res = await fetch("/api/detections");
@@ -105,15 +96,19 @@ export default function OverviewPage() {
 
   // จัด bucket กราฟ: 1 วัน = รายชั่วโมง (เฉพาะวันนี้), หลายวัน = รายวัน
   const rows = chartRows ?? [];
+  const bucket = (inBucket: (d: Detection) => boolean) => ({
+    in: rows.filter((d) => d.direction === "in" && inBucket(d)).length,
+    out: rows.filter((d) => d.direction === "out" && inBucket(d)).length,
+  });
   const buckets =
     range === 1
       ? Array.from({ length: 24 }, (_, h) => ({
           label: `${h}:00`,
-          count: rows.filter(
+          ...bucket(
             (d) =>
               new Date(d.created_at).toDateString() === today &&
               new Date(d.created_at).getHours() === h,
-          ).length,
+          ),
         }))
       : Array.from({ length: range }, (_, i) => {
           const day = new Date();
@@ -124,12 +119,10 @@ export default function OverviewPage() {
               day: "numeric",
               month: "short",
             }),
-            count: rows.filter(
-              (d) => new Date(d.created_at).toDateString() === key,
-            ).length,
+            ...bucket((d) => new Date(d.created_at).toDateString() === key),
           };
         });
-  const max = Math.max(1, ...buckets.map((b) => b.count));
+  const max = Math.max(1, ...buckets.flatMap((b) => [b.in, b.out]));
   const labelStep = Math.ceil(buckets.length / 8);
 
   return (
@@ -172,7 +165,7 @@ export default function OverviewPage() {
         <div className="rounded-lg border border-border bg-surface p-4 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-medium">
-              {range === 1 ? "รถเข้ารายชั่วโมง" : "รถเข้ารายวัน"}
+              {range === 1 ? "รถเข้า-ออกรายชั่วโมง" : "รถเข้า-ออกรายวัน"}
             </h2>
             <div className="flex gap-1">
               {[1, 7, 15, 30].map((n) => (
@@ -194,12 +187,16 @@ export default function OverviewPage() {
             {buckets.map((b) => (
               <div
                 key={b.label}
-                title={`${b.label} — ${b.count} คัน`}
-                className="flex h-full flex-1 items-end justify-center rounded transition-colors hover:bg-surface-muted"
+                title={`${b.label} — เข้า ${b.in} / ออก ${b.out} คัน`}
+                className="flex h-full flex-1 items-end justify-center gap-0.5 rounded transition-colors hover:bg-surface-muted"
               >
                 <div
-                  className="w-2 rounded-t bg-success md:w-2.5"
-                  style={{ height: `${(b.count / max) * 100}%` }}
+                  className="w-1.5 rounded-t bg-success md:w-2"
+                  style={{ height: `${(b.in / max) * 100}%` }}
+                />
+                <div
+                  className="w-1.5 rounded-t bg-warn md:w-2"
+                  style={{ height: `${(b.out / max) * 100}%` }}
                 />
               </div>
             ))}
@@ -213,6 +210,7 @@ export default function OverviewPage() {
           </div>
           <div className="mt-2 flex items-center gap-2 text-sm text-ink-muted">
             <span className="h-3 w-3 rounded-sm bg-success" /> รถเข้า
+            <span className="ml-2 h-3 w-3 rounded-sm bg-warn" /> รถออก
           </div>
         </div>
 
@@ -244,21 +242,6 @@ export default function OverviewPage() {
             )}
           </ul>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          value={time}
-          onChange={(e) => setTime(Number(e.target.value))}
-          className="w-24 rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
-        />
-        <button
-          onClick={() => detecTionIn(time)}
-          className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-surface-muted"
-        >
-          Fetch Detections
-        </button>
       </div>
     </div>
   );
