@@ -59,6 +59,14 @@ router.post("/detections", async (req, res) => {
       match?.id ?? null,
     ],
   );
+  // จับคู่กับ vehicles (ที่ approved) ไม่ได้ = แจ้งเตือน
+  if (!match) {
+    await pool.query(
+      "INSERT INTO notifications (detection_id, reason) VALUES ($1, 'unregistered')",
+      [result.rows[0].id],
+    );
+  }
+
   res.status(201).json(result.rows[0]);
 });
 
