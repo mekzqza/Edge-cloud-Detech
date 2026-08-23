@@ -66,6 +66,25 @@ async function initDb() {
       ADD COLUMN IF NOT EXISTS direction TEXT NOT NULL DEFAULT 'unknown'
       CHECK (direction IN ('in','out','unknown'))`);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id           serial PRIMARY KEY,
+      detection_id integer NOT NULL REFERENCES detections(id) ON DELETE CASCADE,
+      reason       text NOT NULL,          -- เหตุผลที่แจ้งเตือน เช่น 'unregistered' / 'revoked'
+      created_at   timestamptz NOT NULL DEFAULT now()
+    )`);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS notifications_created_at_idx ON notifications (created_at DESC)`);
+
+  // อ่านแล้วเป็นรายคน — pk คู่ กันซ้ำโดยไม่ต้องมี id ของตัวเอง
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notification_reads (
+      notification_id integer NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+      user_id         integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      read_at         timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (notification_id, user_id)
+    )`);
+
   const adminUser = process.env.ADMIN_USER || "admin";
   const adminPass = process.env.ADMIN_PASSWORD || "admin1234";
   await pool.query(
