@@ -31,6 +31,16 @@ router.get("/notifications/unread-count", requireUser, async (req, res) => {
   res.json(rows[0]);
 });
 
+router.post("/notifications/read-all", requireUser, async (req, res) => {
+  const { rowCount } = await pool.query(
+    `INSERT INTO notification_reads (notification_id, user_id)
+     SELECT id, $1 FROM notifications
+     ON CONFLICT DO NOTHING`,
+    [req.user.id],
+  );
+  res.json({ marked: rowCount });
+});
+
 router.post("/notifications/:id/read", requireUser, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id))
