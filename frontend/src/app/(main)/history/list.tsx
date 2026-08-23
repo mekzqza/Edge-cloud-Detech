@@ -6,7 +6,9 @@ import { groupVisits, type Visit } from "@/lib/visits";
 import type { Detection } from "@/types";
 
 /* ===== ตั้งค่าหน้านี้ ===== */
-const VISIT_GAP_MIN = 30; // ไม่เจอรถเกินกี่นาที ถือว่าออกไปแล้ว (ครั้งหน้าที่เจอ = รอบใหม่)
+// ponytail: ค่าจากการเดา ยังไม่ได้จูนกับกล้องจริง — ดูภาพรัวจริงห่างกันเท่าไหร่แล้วปรับ
+const BURST_MIN = 5; // ภาพรัวจากกล้องตัวเดิมที่ห่างไม่เกินนี้ = เหตุการณ์เดียว
+const MAX_STAY_H = 24; // เข้าแล้วไม่เจอขาออกภายในนี้ = ถือว่าไม่ทราบเวลาออก
 /* ========================= */
 
 const time = (iso: string) =>
@@ -22,12 +24,16 @@ const day = (iso: string) =>
     year: "numeric",
   });
 
-// อยู่กี่นาที — รอบที่มีภาพเดียวจะได้ 0 นาที (เห็นแวบเดียว)
-function duration(v: Visit) {
-  const min = Math.round((+new Date(v.exit) - +new Date(v.enter)) / 60_000);
+// อยู่กี่นาที — ใช้ได้เฉพาะรอบที่มีทั้งเวลาเข้าและออก
+function duration(enter: string, exit: string) {
+  const min = Math.round((+new Date(exit) - +new Date(enter)) / 60_000);
   if (min < 1) return "< 1 นาที";
   return min < 60 ? `${min} นาที` : `${Math.floor(min / 60)} ชม. ${min % 60} นาที`;
 }
+
+// เข้ามานานเกินเพดานแล้วยังไม่เจอขาออก = กล้องขาออกพลาด ไม่ใช่ว่ายังจอดอยู่
+const stale = (enter: string) =>
+  Date.now() - +new Date(enter) > MAX_STAY_H * 3_600_000;
 
 // ค้นประวัติรถ — พิมพ์ทะเบียนแล้วดูว่าคันนั้นเข้า-ออกตอนไหนบ้าง
 export default function HistoryList({
@@ -50,7 +56,7 @@ export default function HistoryList({
       );
       const found: Detection[] = res.ok ? await res.json() : [];
       setRows(found);
-      setVisits(groupVisits(found, VISIT_GAP_MIN));
+      setVisits(groupVisits(found, BURST_MIN, MAX_STAY_H));
     });
   }
 
@@ -61,13 +67,13 @@ export default function HistoryList({
 
   // ponytail: ลบทั้งรอบ = ลบทีละภาพ — รอบละไม่กี่สิบภาพ ยังไม่ต้องมี endpoint ลบเป็นชุด
   async function removeVisit(v: Visit) {
+    const from = +new Date((v.enter ?? v.exit)!);
+    const to = +new Date((v.exit ?? v.enter)!);
     const ids = rows
-      .filter(
-        (d) =>
-          d.plate === v.plate &&
-          d.created_at >= v.enter &&
-          d.created_at <= v.exit,
-      )
+      .filter((d) => {
+        const t = +new Date(d.created_at);
+        return d.plate === v.plate && t >= from && t <= to;
+      })
       .map((d) => d.id);
     if (!confirm(`ลบรอบนี้ทั้งหมด ${ids.length} ภาพ?`)) return;
     for (const id of ids) {
@@ -116,14 +122,13 @@ export default function HistoryList({
       ) : (
         <>
           <p className="mt-6 text-xs text-ink-faint">
-            {visits.length} รอบ จาก {rows.length} ภาพ · นับรอบใหม่เมื่อหายไปเกิน{" "}
-            {VISIT_GAP_MIN} นาที
+            {visits.length} รอบ จาก {rows.length} ภาพ · จับคู่จากกล้องขาเข้า–ขาออก
           </p>
 
           <ul className={`mt-3 space-y-2 ${busy ? "opacity-50" : ""}`}>
             {visits.map((v) => (
               <li
-                key={`${v.plate}-${v.enter}`}
+                key={`${v.plate}-${v.enter ?? v.exit}`}
                 className="flex items-center gap-4 rounded-lg border border-border bg-surface p-3"
               >
                 <button
@@ -146,16 +151,27 @@ export default function HistoryList({
                       {v.plate}
                     </span>
                     <span className="text-xs text-ink-faint">
-                      {day(v.enter)}
+                      {day((v.enter ?? v.exit)!)}
                     </span>
                   </div>
 
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-ink-muted">
-                    <span className="text-success">เข้า {time(v.enter)}</span>
+                    {v.enter ? (
+                      <span className="text-success">เข้า {time(v.enter)}</span>
+                    ) : (
+                      <span className="text-ink-faint">ไม่พบเวลาเข้า</span>
+                    )}
                     <span className="text-ink-faint">→</span>
-                    <span className="text-danger">ออก {time(v.exit)}</span>
+                    {v.exit ? (
+                      <span className="text-danger">ออก {time(v.exit)}</span>
+                    ) : stale(v.enter!) ? (
+                      <span className="text-ink-faint">ไม่พบเวลาออก</span>
+                    ) : (
+                      <span className="text-success">ยังอยู่ข้างใน</span>
+                    )}
                     <span className="text-xs text-ink-faint">
-                      ({duration(v)} · {v.shots} ภาพ)
+                      ({v.enter && v.exit ? `${duration(v.enter, v.exit)} · ` : ""}
+                      {v.shots} ภาพ)
                     </span>
                   </div>
                 </div>
