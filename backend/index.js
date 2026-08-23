@@ -13,6 +13,7 @@ app.use("/api", require("./src/routes/auth"));
 app.use("/api", require("./src/routes/oauth"));
 app.use("/api", require("./src/routes/detections"));
 app.use("/api", require("./src/routes/vehicles"));
+app.use("/api", require("./src/routes/notifications"));
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
 initDb().then(() => {
