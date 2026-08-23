@@ -32,3 +32,16 @@ export type AdminVehicle = Vehicle & {
   approved_by_name: string | null;
   approved_at: string | null;
 };
+
+// แถวจาก /api/notifications — join detections มาให้แล้ว, read_at = null คือยังไม่อ่าน
+export type Notification = {
+  id: number;
+  reason: string;
+  created_at: string;
+  read_at: string | null;
+  detection_id: number;
+  filename: string;
+  plate: string | null;
+  province: string | null;
+  direction: Detection["direction"];
+};
