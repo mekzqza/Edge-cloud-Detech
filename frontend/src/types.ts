@@ -19,14 +19,14 @@ export type Vehicle = {
   id: number;
   plate: string;
   province: string;
-  owner_id: number;
+  owner_id: number | null;
   status: Status;
   created_at: string;
 };
 
 // แถวจาก /api/admin/vehicles — join ชื่อผู้ใช้มาให้แล้ว
 export type AdminVehicle = Vehicle & {
-  owner_name: string;
+  owner_name: string | null; // null = import มาโดยยังไม่รู้เจ้าของ
   approved_by_name: string | null;
   approved_at: string | null;
 };

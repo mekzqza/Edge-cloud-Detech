@@ -137,7 +137,7 @@ router.get(
     const { rows } = await pool.query(
       `SELECT v.*, u.username AS owner_name, a.username AS approved_by_name
          FROM vehicles v
-         JOIN users u ON u.id = v.owner_id
+         LEFT JOIN users u ON u.id = v.owner_id
          LEFT JOIN users a ON a.id = v.approved_by
          ${cond.length ? `WHERE ${cond.join(" AND ")}` : ""}
         ORDER BY v.created_at DESC
@@ -269,10 +269,9 @@ router.post(
       const { rows: skipped } = await client.query(
         `SELECT t.plate, t.username,
                 CASE WHEN t.plate = '' THEN 'ทะเบียนว่าง'
-                     WHEN t.province = '' THEN 'จังหวัดว่าง'
-                     ELSE 'ไม่พบผู้ใช้' END AS reason
-           FROM t LEFT JOIN users u ON u.username = t.username
-          WHERE t.plate = '' OR t.province = '' OR u.id IS NULL`,
+                     ELSE 'จังหวัดว่าง' END AS reason
+           FROM t
+          WHERE t.plate = '' OR t.province = ''`,
       );
 
       const {
@@ -281,7 +280,7 @@ router.post(
         `WITH ins AS (
            INSERT INTO vehicles (plate, province, owner_id, status, approved_by, approved_at)
            SELECT DISTINCT t.plate, t.province, u.id, 'approved', $1::int, now()
-             FROM t JOIN users u ON u.username = t.username
+             FROM t LEFT JOIN users u ON u.username = t.username
             WHERE t.plate <> '' AND t.province <> ''
            ON CONFLICT (plate, province) DO NOTHING
            RETURNING 1

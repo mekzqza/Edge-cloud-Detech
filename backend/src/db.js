@@ -48,6 +48,10 @@ async function initDb() {
       CONSTRAINT vehicles_plate_province_key UNIQUE (plate, province)
     )`);
 
+  // import CSV รับรถที่ยังไม่รู้เจ้าของได้ — owner_id NULL = ยังไม่ผูกผู้ใช้
+  await pool.query(`
+    ALTER TABLE vehicles ALTER COLUMN owner_id DROP NOT NULL`);
+
   // เลขในป้ายเป็น blocking key ของ fuzzy match — generated ไว้เลยไม่มีทางหลุด sync กับ plate
   await pool.query(`
     ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS plate_digits text
