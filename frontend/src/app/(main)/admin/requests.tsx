@@ -43,6 +43,12 @@ export default function VehicleRequests({ token }: { token: string }) {
     return () => clearTimeout(t);
   }, [load]);
 
+  // นำเข้า CSV เสร็จแล้วตารางต้องอัปเดตเอง — ImportCsv เป็น component พี่น้องกัน
+  useEffect(() => {
+    window.addEventListener("vehicles-imported", load);
+    return () => window.removeEventListener("vehicles-imported", load);
+  }, [load]);
+
   async function decide(v: AdminVehicle, next: Status) {
     setError("");
     const res = await fetch(`/api/admin/vehicles/${v.id}`, {
@@ -56,6 +62,21 @@ export default function VehicleRequests({ token }: { token: string }) {
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       return setError(body?.error ?? "บันทึกไม่สำเร็จ");
+    }
+    load();
+  }
+
+  async function remove(v: AdminVehicle) {
+    setError("");
+    // ponytail: confirm() ของ browser พอแล้ว ไม่ต้องทำ modal
+    if (!confirm(`ลบคำขอทะเบียน ${v.plate} ถาวร?`)) return;
+    const res = await fetch(`/api/admin/vehicles/${v.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      return setError(body?.error ?? "ลบไม่สำเร็จ");
     }
     load();
   }
@@ -183,12 +204,19 @@ export default function VehicleRequests({ token }: { token: string }) {
                           อนุมัติ
                         </button>
                       )}
-                      {v.status !== "revoked" && (
+                      {v.status !== "revoked" ? (
                         <button
                           onClick={() => decide(v, "revoked")}
                           className="rounded-md border border-border px-3 py-1 text-xs text-danger transition-colors hover:bg-danger-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                         >
                           ปฏิเสธ
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => remove(v)}
+                          className="rounded-md border border-danger px-3 py-1 text-xs text-danger transition-colors hover:bg-danger hover:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                        >
+                          ลบ
                         </button>
                       )}
                     </div>

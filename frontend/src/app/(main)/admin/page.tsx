@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import ImportCsv from "./import";
 import VehicleRequests from "./requests";
 
 // จัดการระบบ — ข้อมูลบัญชี + คำขอเพิ่มรถ (เห็นเฉพาะ admin, backend เช็คซ้ำด้วย requireAdmin)
@@ -31,7 +32,10 @@ export default async function AdminPage() {
       </div>
 
       {isAdmin && (
-        <VehicleRequests token={session?.user.backendToken ?? ""} />
+        <>
+          <ImportCsv token={session?.user.backendToken ?? ""} />
+          <VehicleRequests token={session?.user.backendToken ?? ""} />
+        </>
       )}
     </div>
   );

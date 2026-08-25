@@ -27,3 +27,6 @@ dist-ssr
 *.sw?
 
 *.deploy_key
+
+# build artifact
+tsconfig.tsbuildinfo
