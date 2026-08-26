@@ -109,7 +109,7 @@ export default function VehicleRequests({ token }: { token: string }) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="ชื่อผู้ใช้"
+          placeholder="ชื่อเจ้าของ"
           aria-label="กรองด้วยชื่อผู้ใช้"
           className={`${input} w-36`}
         />

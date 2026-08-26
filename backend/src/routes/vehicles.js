@@ -18,6 +18,21 @@ function field(v) {
   return v.trim();
 }
 
+// เจ้าของของ account นี้ — สร้างตอนใช้ครั้งแรก ชื่อเริ่มต้น = username
+// ponytail: ไม่มีหน้าแก้โปรไฟล์เจ้าของ ค่อยเพิ่มตอนต้องแก้ชื่อ/เบอร์เอง
+async function myOwnerId(user) {
+  const { rows } = await pool.query(
+    `INSERT INTO owners (full_name, user_id) VALUES ($1, $2)
+     ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
+     RETURNING id`,
+    [user.username, user.id],
+  );
+  return rows[0].id;
+}
+
+// รถของ account นี้ = รถของ owner ที่ผูกกับ account (ยังไม่มี owner = ยังไม่มีรถ)
+const myOwner = (n) => `(SELECT id FROM owners WHERE user_id = $${n})`;
+
 router.post(
   "/vehicles",
   requireUser,
@@ -34,7 +49,7 @@ router.post(
     const { rows } = await pool.query(
       `INSERT INTO vehicles (plate, province, owner_id) VALUES ($1, $2, $3)
        ON CONFLICT DO NOTHING RETURNING *`,
-      [plate, province, req.user.id],
+      [plate, province, await myOwnerId(req.user)],
     );
     if (!rows[0]) return res.status(409).json({ error: "รถคันนี้มีอยู่แล้ว" });
     return res.status(201).json(rows[0]);
@@ -46,7 +61,8 @@ router.get(
   requireUser,
   h(async (req, res) => {
     const { rows } = await pool.query(
-      `SELECT * FROM vehicles WHERE owner_id = $1 ORDER BY created_at DESC`,
+      `SELECT * FROM vehicles WHERE owner_id = ${myOwner(1)}
+        ORDER BY created_at DESC`,
       [req.user.id],
     );
     return res.json(rows);
@@ -64,7 +80,8 @@ router.delete(
 
     // owner_id อยู่ใน WHERE = เช็คความเป็นเจ้าของกับลบในคิวรี่เดียว
     const { rows } = await pool.query(
-      `DELETE FROM vehicles WHERE id = $1 AND owner_id = $2 RETURNING id`,
+      `DELETE FROM vehicles
+        WHERE id = $1 AND owner_id = ${myOwner(2)} RETURNING id`,
       [vehicleId, req.user.id],
     );
     if (!rows[0]) return res.status(404).json({ error: "ไม่พบรถคันนี้" });
@@ -93,7 +110,7 @@ router.patch(
           SET plate = COALESCE($1, plate),
               province = COALESCE($2, province),
               status = 'pending', approved_by = NULL, approved_at = NULL
-        WHERE id = $3 AND owner_id = $4
+        WHERE id = $3 AND owner_id = ${myOwner(4)}
         RETURNING *`,
       [plate ?? null, province ?? null, vehicleId, req.user.id],
     );
@@ -127,7 +144,7 @@ router.get(
       );
     }
     if (typeof q === "string" && q.trim()) {
-      where("u.username ILIKE $?", `%${q.trim()}%`);
+      where("o.full_name ILIKE $?", `%${q.trim()}%`);
     }
     if (typeof plate === "string" && plate.trim()) {
       where("v.plate ILIKE $?", `%${plate.trim()}%`);
@@ -135,9 +152,10 @@ router.get(
 
     // ponytail: LIMIT ตายตัวแทน pagination — คำขอค้างพร้อมกันเป็นร้อยค่อยว่ากัน
     const { rows } = await pool.query(
-      `SELECT v.*, u.username AS owner_name, a.username AS approved_by_name
+      `SELECT v.*, o.full_name AS owner_name, o.contact AS owner_contact,
+              a.username AS approved_by_name
          FROM vehicles v
-         LEFT JOIN users u ON u.id = v.owner_id
+         LEFT JOIN owners o ON o.id = v.owner_id
          LEFT JOIN users a ON a.id = v.approved_by
          ${cond.length ? `WHERE ${cond.join(" AND ")}` : ""}
         ORDER BY v.created_at DESC
@@ -217,7 +235,8 @@ function parseCsv(text) {
 }
 
 // POST /api/admin/vehicles/import  — body เป็น CSV ดิบ, Content-Type: text/csv
-// header ต้องมี plate,province,username ; import แล้ว = approved เลย
+// header ต้องมี plate,province ; owner_name,contact,username เป็นตัวเลือก
+// username = ผูกกับ account ที่มีอยู่, owner_name = เจ้าของที่ไม่มี account
 router.post(
   "/admin/vehicles/import",
   requireAdmin,
@@ -238,40 +257,62 @@ router.post(
       return res.status(400).json({ error: "ไฟล์ CSV มีขนาดใหญ่เกินไป" });
     }
 
-    const missingCols = ["plate", "province", "username"].filter(
-      (c) => !(c in records[0]),
-    );
+    const missingCols = ["plate", "province"].filter((c) => !(c in records[0]));
     if (missingCols.length) {
       return res
         .status(400)
         .json({ error: `CSV ขาดคอลัมน์: ${missingCols.join(",")}` });
     }
 
-    const plates = records.map((r) => r.plate);
-    const provinces = records.map((r) => r.province);
-    const usernames = records.map((r) => r.username);
+    const col = (name) => records.map((r) => r[name] ?? "");
+    const [plates, provinces, usernames, ownerNames, contacts] = [
+      "plate",
+      "province",
+      "username",
+      "owner_name",
+      "contact",
+    ].map(col);
 
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       await client.query(
-        `CREATE TEMP TABLE t (plate text, province text, username text)
-         ON COMMIT DROP`,
+        `CREATE TEMP TABLE t (plate text, province text, username text,
+                              owner_name text, contact text) ON COMMIT DROP`,
       );
       await client.query(
-        `INSERT INTO t (plate, province, username)
-         SELECT * FROM unnest($1::text[], $2::text[], $3::text[])`,
-        [plates, provinces, usernames],
+        `INSERT INTO t (plate, province, username, owner_name, contact)
+         SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[])`,
+        [plates, provinces, usernames, ownerNames, contacts],
       );
 
       // province ว่าง = ข้าม ไม่ใช่ insert เป็น NULL — UNIQUE (plate, province) ไม่จับ NULL
       // ปล่อยผ่านคือเปิดช่องให้ทะเบียนเดิมโผล่ซ้ำได้เรื่อยๆ
       const { rows: skipped } = await client.query(
-        `SELECT t.plate, t.username,
+        `SELECT t.plate, COALESCE(NULLIF(t.owner_name, ''), t.username) AS owner,
                 CASE WHEN t.plate = '' THEN 'ทะเบียนว่าง'
                      ELSE 'จังหวัดว่าง' END AS reason
            FROM t
           WHERE t.plate = '' OR t.province = ''`,
+      );
+
+      // เจ้าของที่ระบุมาแต่ชื่อ — สร้างใหม่ถ้ายังไม่มี
+      // ponytail: dedupe ด้วยชื่อตรงตัว ไม่มี UNIQUE เพราะคนชื่อซ้ำกันได้จริง
+      await client.query(
+        `INSERT INTO owners (full_name, contact)
+         SELECT t.owner_name, min(NULLIF(t.contact, ''))
+           FROM t
+          WHERE t.owner_name <> ''
+            AND NOT EXISTS (SELECT 1 FROM owners o WHERE o.full_name = t.owner_name)
+          GROUP BY t.owner_name`,
+      );
+
+      // account ที่ยังไม่เคยมี owner — สร้างให้ตอน import
+      await client.query(
+        `INSERT INTO owners (full_name, user_id)
+         SELECT DISTINCT u.username, u.id
+           FROM t JOIN users u ON u.username = t.username
+         ON CONFLICT (user_id) DO NOTHING`,
       );
 
       const {
@@ -279,8 +320,13 @@ router.post(
       } = await client.query(
         `WITH ins AS (
            INSERT INTO vehicles (plate, province, owner_id, status, approved_by, approved_at)
-           SELECT DISTINCT t.plate, t.province, u.id, 'approved', $1::int, now()
-             FROM t LEFT JOIN users u ON u.username = t.username
+           SELECT DISTINCT t.plate, t.province,
+                  COALESCE(acc.id, named.id), 'approved', $1::int, now()
+             FROM t
+             LEFT JOIN users u ON u.username = t.username
+             LEFT JOIN owners acc ON acc.user_id = u.id
+             LEFT JOIN owners named
+                    ON named.full_name = t.owner_name AND t.owner_name <> ''
             WHERE t.plate <> '' AND t.province <> ''
            ON CONFLICT (plate, province) DO NOTHING
            RETURNING 1
@@ -319,13 +365,13 @@ module.exports = router;
 if (require.main === module) {
   const assert = require("assert");
   const rows = parseCsv(
-    "﻿plate,province,username\r\n1กก1234, กรุงเทพมหานคร ,somchai\r\n\r\n2ขข5678,,\r\n",
+    "﻿plate,province,owner_name\r\n1กก1234, กรุงเทพมหานคร ,สมชาย\r\n\r\n2ขข5678,,\r\n",
   );
   assert.deepStrictEqual(rows, [
-    { plate: "1กก1234", province: "กรุงเทพมหานคร", username: "somchai" },
-    { plate: "2ขข5678", province: "", username: "" },
+    { plate: "1กก1234", province: "กรุงเทพมหานคร", owner_name: "สมชาย" },
+    { plate: "2ขข5678", province: "", owner_name: "" },
   ]);
-  assert.deepStrictEqual(parseCsv("plate,province,username\n"), []);
+  assert.deepStrictEqual(parseCsv("plate,province,owner_name\n"), []);
   assert.deepStrictEqual(parseCsv(""), []);
   console.log("parseCsv ok");
 }
