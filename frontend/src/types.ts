@@ -7,7 +7,8 @@ export type Detection = {
   filename: string;
   label: string | null;
   created_at: string;
-  plate: string | null;
+  plate: string | null; // ค่าที่ระบบเชื่อ — จับคู่รถได้ = ป้ายที่ลงทะเบียนไว้ ไม่ได้ = เท่ากับ plate_raw
+  plate_raw: string | null; // ค่าที่ OCR อ่านมาจริง ๆ (แถวเก่าก่อนมีคอลัมน์นี้เป็น null)
   province: string | null;
   confidence: number | null;
   verified: boolean | null;

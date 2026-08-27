@@ -224,7 +224,11 @@ export default function RecordsList({
                 {/* z-10: ป้ายเกยขอบล่างของรูป ถ้าไม่ยกชั้น รูป (position:relative) จะทับป้าย */}
                 <div className="relative z-10 -mt-5 flex justify-center">
                   {d.plate ? (
-                    <Plate plate={d.plate} province={d.province} />
+                    <Plate
+                      plate={d.plate}
+                      province={d.province}
+                      raw={d.plate_raw}
+                    />
                   ) : (
                     <span className="rounded border border-border bg-surface px-2 py-1.5 text-xs text-ink-muted">
                       {d.label || "อ่านป้ายไม่ออก"}

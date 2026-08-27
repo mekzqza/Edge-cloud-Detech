@@ -80,6 +80,15 @@ async function initDb() {
       ADD COLUMN IF NOT EXISTS direction TEXT NOT NULL DEFAULT 'unknown'
       CHECK (direction IN ('in','out','unknown'))`);
 
+  // plate = ค่าที่ระบบเชื่อ (จับคู่รถได้ก็ใช้ป้ายที่ลงทะเบียนไว้), plate_raw = ค่าที่ Pi อ่านได้จริง
+  // เติมทั้งสองช่องเสมอ ไม่แมตช์ก็เท่ากัน — fallback จึงไม่ต้องมี COALESCE/?? ที่ไหนเลย
+  await pool.query(`
+    ALTER TABLE detections ADD COLUMN IF NOT EXISTS plate_raw text`);
+  await pool.query(`
+    UPDATE detections SET plate_raw = plate WHERE plate_raw IS NULL`);
+  await pool.query(`
+    ALTER TABLE detections ALTER COLUMN plate_raw SET NOT NULL`);
+
   // vehicles.owner_id เคยชี้ users — ย้ายไปชี้ owners ครั้งเดียว
   // เช็คจากปลายทางของ FK เอง ไม่ต้องมีตาราง migration
   const {
