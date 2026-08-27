@@ -6,7 +6,7 @@ type Result = {
   total: number;
   inserted: number;
   duplicated: number;
-  skipped: { plate: string; username: string; reason: string }[];
+  skipped: { plate: string; owner: string | null; reason: string }[];
 };
 
 // นำเข้าทะเบียนทีละหลายคันจาก CSV — ส่งไฟล์ดิบเป็น text/csv ตรงไป backend
@@ -65,8 +65,11 @@ export default function ImportCsv({ token }: { token: string }) {
       <header className="border-b border-border pb-4">
         <h2 className="text-lg font-medium">นำเข้าทะเบียนจาก CSV</h2>
         <p className="mt-1 text-sm text-ink-muted">
-          ต้องมีหัวตาราง <code className="font-mono">plate,province,username</code>{" "}
-          — รถที่นำเข้าจะเป็นสถานะอนุมัติทันที ไม่ต้องกดอนุมัติซ้ำ
+          ต้องมีหัวตาราง <code className="font-mono">plate,province</code> — ใส่{" "}
+          <code className="font-mono">owner_name,contact</code>{" "}
+          สำหรับเจ้าของที่ไม่มี account หรือ{" "}
+          <code className="font-mono">username</code> เพื่อผูกกับ account
+          ที่มีอยู่ — รถที่นำเข้าจะเป็นสถานะอนุมัติทันที ไม่ต้องกดอนุมัติซ้ำ
         </p>
       </header>
 
@@ -144,7 +147,9 @@ export default function ImportCsv({ token }: { token: string }) {
               {result.skipped.map((s, i) => (
                 <li key={i}>
                   <span className="font-mono">{s.plate || "(ว่าง)"}</span>{" "}
-                  <span className="text-ink-faint">/ {s.username || "(ว่าง)"}</span>{" "}
+                  <span className="text-ink-faint">
+                    / {s.owner || "(ว่าง)"}
+                  </span>{" "}
                   — {s.reason}
                 </li>
               ))}

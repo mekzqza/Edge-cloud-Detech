@@ -109,7 +109,7 @@ export default function VehicleRequests({ token }: { token: string }) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="ชื่อผู้ใช้"
+          placeholder="ชื่อเจ้าของ"
           aria-label="กรองด้วยชื่อผู้ใช้"
           className={`${input} w-36`}
         />
@@ -173,7 +173,7 @@ export default function VehicleRequests({ token }: { token: string }) {
                     <Plate plate={v.plate} province={v.province} />
                   </td>
                   <td className="border-y border-border px-3 py-2 font-mono text-ink-muted">
-                    {v.owner_name}
+                    {v.owner_name ?? "— ไม่มีเจ้าของ"}
                   </td>
                   <td className="border-y border-border px-3 py-2 text-ink-muted">
                     <time dateTime={v.created_at}>

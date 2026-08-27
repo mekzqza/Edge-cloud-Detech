@@ -34,6 +34,16 @@ async function initDb() {
   await pool.query(`
       ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
 
+  // เจ้าของ = entity ของตัวเอง; user_id เป็นของแถม (NULL = เจ้าของที่ไม่มี account)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS owners (
+      id         serial PRIMARY KEY,
+      full_name  text NOT NULL,
+      contact    text,
+      user_id    integer UNIQUE REFERENCES users(id) ON DELETE SET NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS vehicles (
       id          serial PRIMARY KEY,
@@ -47,6 +57,10 @@ async function initDb() {
       CONSTRAINT vehicles_status_chk CHECK (status IN ('pending','approved','revoked')),
       CONSTRAINT vehicles_plate_province_key UNIQUE (plate, province)
     )`);
+
+  // import CSV รับรถที่ยังไม่รู้เจ้าของได้ — owner_id NULL = ยังไม่ผูกผู้ใช้
+  await pool.query(`
+    ALTER TABLE vehicles ALTER COLUMN owner_id DROP NOT NULL`);
 
   // เลขในป้ายเป็น blocking key ของ fuzzy match — generated ไว้เลยไม่มีทางหลุด sync กับ plate
   await pool.query(`
@@ -65,6 +79,41 @@ async function initDb() {
     ALTER TABLE detections
       ADD COLUMN IF NOT EXISTS direction TEXT NOT NULL DEFAULT 'unknown'
       CHECK (direction IN ('in','out','unknown'))`);
+
+  // plate = ค่าที่ระบบเชื่อ (จับคู่รถได้ก็ใช้ป้ายที่ลงทะเบียนไว้), plate_raw = ค่าที่ Pi อ่านได้จริง
+  // เติมทั้งสองช่องเสมอ ไม่แมตช์ก็เท่ากัน — fallback จึงไม่ต้องมี COALESCE/?? ที่ไหนเลย
+  await pool.query(`
+    ALTER TABLE detections ADD COLUMN IF NOT EXISTS plate_raw text`);
+  await pool.query(`
+    UPDATE detections SET plate_raw = plate WHERE plate_raw IS NULL`);
+  await pool.query(`
+    ALTER TABLE detections ALTER COLUMN plate_raw SET NOT NULL`);
+
+  // vehicles.owner_id เคยชี้ users — ย้ายไปชี้ owners ครั้งเดียว
+  // เช็คจากปลายทางของ FK เอง ไม่ต้องมีตาราง migration
+  const {
+    rows: [fk],
+  } = await pool.query(
+    `SELECT confrelid::regclass::text AS target FROM pg_constraint
+      WHERE conrelid = 'vehicles'::regclass AND conname = 'vehicles_owner_id_fkey'`,
+  );
+  if (fk && fk.target === "users") {
+    // ไม่มี params = simple query protocol = ทั้งก้อนอยู่ใน transaction เดียวให้เอง
+    await pool.query(`
+      INSERT INTO owners (full_name, user_id)
+      SELECT u.username, u.id FROM users u
+       WHERE EXISTS (SELECT 1 FROM vehicles v WHERE v.owner_id = u.id)
+      ON CONFLICT (user_id) DO NOTHING;
+
+      UPDATE vehicles v SET owner_id = o.id FROM owners o WHERE o.user_id = v.owner_id;
+
+      ALTER TABLE vehicles
+        DROP CONSTRAINT vehicles_owner_id_fkey,
+        ADD CONSTRAINT vehicles_owner_id_fkey FOREIGN KEY (owner_id)
+            REFERENCES owners(id) ON DELETE SET NULL;
+    `);
+    console.log("migrated vehicles.owner_id -> owners");
+  }
 
   const adminUser = process.env.ADMIN_USER || "admin";
   const adminPass = process.env.ADMIN_PASSWORD || "admin1234";

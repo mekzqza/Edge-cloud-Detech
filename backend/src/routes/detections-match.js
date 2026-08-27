@@ -7,7 +7,7 @@
 // ปล่อยรถผิดคันเข้า แย่กว่าไม่เปิดประตูให้เจ้าของ
 // ใช้ [^0-9] ไม่ใช่ \D — ใน JS string "\D" กลายเป็น "D" เงียบ ๆ
 const MATCH_SQL = `
-  SELECT v.id, v.province
+  SELECT v.id, v.plate, v.province
   FROM (
     SELECT COALESCE(
       (SELECT id FROM vehicles WHERE status = 'approved' AND plate = $1 AND province = $2),
@@ -23,14 +23,10 @@ const MATCH_SQL = `
   LEFT JOIN vehicles v ON v.id = m.id`;
 
 // db = pool หรือ client ก็ได้ (เทสต์ส่ง client ที่อยู่ใน transaction เข้ามา)
-// คืน { id, province } ของรถที่จับคู่ได้ หรือ null
+// คืน { id, plate, province } ของรถที่จับคู่ได้ หรือ null
 async function matchVehicle(db, plate, province) {
   const { rows } = await db.query(MATCH_SQL, [plate, province]);
   return rows[0].id == null ? null : rows[0];
 }
 
-// Pi อ่านจังหวัดไม่ออกจะส่ง UNKNOWN มา (บางทีก็ว่างเปล่า)
-const isUnknownProvince = (p) =>
-  !String(p).trim() || String(p).trim().toUpperCase() === "UNKNOWN";
-
-module.exports = { MATCH_SQL, matchVehicle, isUnknownProvince };
+module.exports = { MATCH_SQL, matchVehicle };

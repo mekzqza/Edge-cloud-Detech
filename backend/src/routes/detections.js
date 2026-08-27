@@ -4,7 +4,7 @@ const path = require("path");
 const { pool } = require("../db");
 const { requireAdmin } = require("../auth");
 const { buildWhere } = require("./detections-filter");
-const { matchVehicle, isUnknownProvince } = require("./detections-match");
+const { matchVehicle } = require("./detections-match");
 
 const router = Router();
 
@@ -41,16 +41,18 @@ router.post("/detections", async (req, res) => {
 
   const match = await matchVehicle(pool, plate, province);
 
-  // Pi อ่านจังหวัดไม่ออก แต่จับคู่รถได้ → ใช้จังหวัดที่เจ้าของลงทะเบียนไว้แทน
-  const finalProvince =
-    match && isUnknownProvince(province) ? match.province : province;
+  // จับคู่รถได้ = เชื่อทะเบียนที่เจ้าของลงทะเบียนไว้มากกว่าที่ OCR อ่านมา (ทั้งป้ายและจังหวัด)
+  // เชื่อพอจะเปิดประตูให้แล้ว ก็เชื่อพอจะใช้ค่าของมัน — ค่าดิบไม่หาย อยู่ใน plate_raw
+  const finalPlate = match ? match.plate : plate;
+  const finalProvince = match ? match.province : province;
 
   const result = await pool.query(
-    `INSERT INTO detections (filename, plate, province, confidence, captured_at, direction, matched_vehicle_id, access_granted)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::int, $7::int IS NOT NULL)
+    `INSERT INTO detections (filename, plate, plate_raw, province, confidence, captured_at, direction, matched_vehicle_id, access_granted)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::int, $8::int IS NOT NULL)
      RETURNING *`,
     [
       filename,
+      finalPlate,
       plate,
       finalProvince,
       confidence,
@@ -113,7 +115,8 @@ router.get("/detections/plate/:plate", async (req, res) => {
   const q = String(req.params.plate).trim();
   if (!q) return res.status(400).json({ error: "ระบุเลขทะเบียน" });
   const { rows } = await pool.query(
-    "SELECT * FROM detections WHERE plate ILIKE $1 ORDER BY created_at DESC LIMIT 1000",
+    // ค้นทั้งสองช่อง: คนที่จำค่าที่ระบบแก้ให้ และคนที่จำค่าที่ OCR อ่านมา ต้องเจอเหมือนกัน
+    "SELECT * FROM detections WHERE plate ILIKE $1 OR plate_raw ILIKE $1 ORDER BY created_at DESC LIMIT 1000",
     [`%${q}%`],
   );
   res.json(rows);

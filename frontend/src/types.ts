@@ -7,7 +7,8 @@ export type Detection = {
   filename: string;
   label: string | null;
   created_at: string;
-  plate: string | null;
+  plate: string | null; // ค่าที่ระบบเชื่อ — จับคู่รถได้ = ป้ายที่ลงทะเบียนไว้ ไม่ได้ = เท่ากับ plate_raw
+  plate_raw: string | null; // ค่าที่ OCR อ่านมาจริง ๆ (แถวเก่าก่อนมีคอลัมน์นี้เป็น null)
   province: string | null;
   confidence: number | null;
   verified: boolean | null;
@@ -19,14 +20,15 @@ export type Vehicle = {
   id: number;
   plate: string;
   province: string;
-  owner_id: number;
+  owner_id: number | null; // -> owners.id (NULL = ยังไม่รู้เจ้าของ)
   status: Status;
   created_at: string;
 };
 
-// แถวจาก /api/admin/vehicles — join ชื่อผู้ใช้มาให้แล้ว
+// แถวจาก /api/admin/vehicles — join ชื่อเจ้าของมาให้แล้ว
 export type AdminVehicle = Vehicle & {
-  owner_name: string;
+  owner_name: string | null; // null = import มาโดยยังไม่รู้เจ้าของ
+  owner_contact: string | null;
   approved_by_name: string | null;
   approved_at: string | null;
 };
