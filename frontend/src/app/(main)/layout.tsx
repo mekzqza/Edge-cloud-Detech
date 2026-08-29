@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import NotificationBell from "@/app/NotificationBell";
 
 const nav = [
   { href: "/", label: "ภาพรวม" },
@@ -49,7 +50,12 @@ export default async function MainLayout({
           </form>
         </div>
       </aside>
-      <main className="flex-1 p-6">{children}</main>
+      <div className="flex flex-1 flex-col">
+        <header className="flex justify-end border-b border-border bg-surface px-6 py-2">
+          <NotificationBell token={session?.user.backendToken ?? ""} />
+        </header>
+        <main className="flex-1 p-6">{children}</main>
+      </div>
     </div>
   );
 }
