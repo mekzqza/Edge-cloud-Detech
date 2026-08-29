@@ -1,25 +1,16 @@
 const { Router } = require("express");
 const { pool } = require("../db");
-const { signToken } = require("../auth");
+const { signToken, deriveUsername } = require("../auth");
 
 const router = Router();
 
 const INTERNAL_SECRET = process.env.INTERNAL_SECRET;
 if (!INTERNAL_SECRET) throw new Error("INTERNAL_SECRET is not set");
 
-const USERNAME_MIN_LEN = 3;
-const USERNAME_MAX_LEN = 24;
 const MAX_ATTEMPTS = 5;
 
-function deriveUsername(emailLower) {
-  const base = emailLower
-    .split("@")[0]
-    .replace(/[^a-z0-9._-]/g, "")
-    .slice(0, USERNAME_MAX_LEN);
-  return base.length >= USERNAME_MIN_LEN ? base : "user";
-}
-
-// POST /api/oauth  { email, name?, emailVerified } → { token, role }
+// POST /api/oauth  { email, emailVerified } → { token, role }
+// ทางเข้าเดียวของระบบ — ไม่มี login ด้วยรหัสผ่านแล้ว
 router.post("/oauth", async (req, res) => {
   if (req.headers["x-internal-secret"] !== INTERNAL_SECRET) {
     return res.status(403).json({ error: "Forbidden" });
@@ -48,7 +39,7 @@ router.post("/oauth", async (req, res) => {
       return res.json({ token: signToken(u), role: u.role });
     }
 
-    // 2) ยังไม่มี → สร้างใหม่ (password_hash = NULL, login ด้วยรหัสผ่านไม่ได้)
+    // 2) ยังไม่มี → สร้างใหม่ (username เป็นแค่ชื่อที่แสดง ไม่ใช่คีย์ล็อกอิน)
     const base = deriveUsername(emailLower);
 
     for (let i = 0; i < MAX_ATTEMPTS; i++) {
@@ -56,8 +47,8 @@ router.post("/oauth", async (req, res) => {
         i === 0 ? base : `${base}${Math.floor(Math.random() * 10000)}`;
 
       const inserted = await pool.query(
-        `INSERT INTO users (username, email, password_hash, role)
-         VALUES ($1, $2, NULL, 'user')
+        `INSERT INTO users (username, email, role)
+         VALUES ($1, $2, 'user')
          ON CONFLICT DO NOTHING
          RETURNING username, role`,
         [username, emailLower],

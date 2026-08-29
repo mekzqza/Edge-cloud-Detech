@@ -1,8 +1,8 @@
 import { auth } from "@/auth";
 
-// ทุกหน้าต้อง login ก่อน ยกเว้น /login กับ /register
+// ทุกหน้าต้อง login ก่อน ยกเว้น /login
 export default auth((req) => {
-  const isPublic = ["/login", "/register"].includes(req.nextUrl.pathname);
+  const isPublic = req.nextUrl.pathname === "/login";
   if (!req.auth && !isPublic) {
     return Response.redirect(new URL("/login", req.nextUrl));
   }
