@@ -1,13 +1,14 @@
 import { auth } from "@/auth";
 
-// ทุกหน้าต้อง login ก่อน ยกเว้น /login
+// เปิดให้คนที่ยังไม่ล็อกอินดูได้แค่หน้าภาพรวม ("/") — ที่เหลือเด้งไป /login
 export default auth((req) => {
-  const isPublic = req.nextUrl.pathname === "/login";
-  if (!req.auth && !isPublic) {
-    return Response.redirect(new URL("/login", req.nextUrl));
+  const { pathname } = req.nextUrl;
+  if (pathname === "/login") {
+    if (req.auth) return Response.redirect(new URL("/", req.nextUrl));
+    return;
   }
-  if (req.auth && isPublic) {
-    return Response.redirect(new URL("/", req.nextUrl));
+  if (!req.auth && pathname !== "/") {
+    return Response.redirect(new URL("/login", req.nextUrl));
   }
 });
 
