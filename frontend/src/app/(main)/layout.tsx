@@ -2,9 +2,10 @@ import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import NotificationBell from "@/app/NotificationBell";
 
-// guest = true → ยังไม่ล็อกอินก็เห็นเมนูนี้ (ตรงกับ middleware ที่ปล่อยแค่ "/")
+// guest เห็นครบทุกเมนู — กดแล้ว middleware เด้งไป /login ให้เอง
+// (เมนูที่หายไปเลยทำให้ guest ไม่รู้ว่าล็อกอินแล้วได้อะไรเพิ่ม)
 const nav = [
-  { href: "/", label: "ภาพรวม", guest: true },
+  { href: "/", label: "ภาพรวม" },
   { href: "/records", label: "บันทึกรถเข้า" },
   { href: "/exits", label: "บันทึกรถออก" },
   { href: "/history", label: "ค้นประวัติรถ" },
@@ -26,17 +27,15 @@ export default async function MainLayout({
           Edge Cloud Detech
         </div>
         <nav className="flex-1 space-y-1 p-3">
-          {nav
-            .filter((n) => session || n.guest)
-            .map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                className="block rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-surface-muted hover:text-ink"
-              >
-                {n.label}
-              </Link>
-            ))}
+          {nav.map((n) => (
+            <Link
+              key={n.href}
+              href={n.href}
+              className="block rounded-md px-3 py-2 text-sm text-ink-muted hover:bg-surface-muted hover:text-ink"
+            >
+              {n.label}
+            </Link>
+          ))}
         </nav>
         <div className="border-t border-border p-4 text-sm">
           {session ? (
