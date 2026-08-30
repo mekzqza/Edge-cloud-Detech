@@ -15,5 +15,5 @@ export default auth((req) => {
 export const config = {
   // ข้าม /api (NextAuth + proxy ไป backend), static ของ Next และไฟล์ใน public/
   // (อะไรที่มีนามสกุล — ไม่งั้นรูปพื้นหลัง/ไอคอนโดนเด้งไป /login)
-  matcher: ["/((?!api|_next/static|_next/image|.*\..*).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|.*\\..*).*)"],
 };
