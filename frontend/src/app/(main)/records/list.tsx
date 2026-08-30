@@ -180,7 +180,7 @@ export default function RecordsList({
         </p>
       ) : (
         <div
-          className={`mt-6 grid items-start gap-5 transition-opacity ${busy ? "opacity-50" : ""}`}
+          className={`mt-6 grid gap-5 transition-opacity ${busy ? "opacity-50" : ""}`}
           style={{
             gridTemplateColumns: `repeat(auto-fill,minmax(${CARD_MIN_WIDTH}px,1fr))`,
           }}
@@ -245,7 +245,7 @@ export default function RecordsList({
                   )}
                 </div>
                 {/* ponytail: <details> ของเบราว์เซอร์ — ไม่ต้องมี state เปิด/ปิด */}
-                <details className="group mt-3 text-xs text-ink-muted">
+                <details className="group relative mt-3 text-xs text-ink-muted">
                   <summary className="flex cursor-pointer items-center justify-between gap-2 rounded px-1 py-0.5 marker:content-[''] hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
                     <time dateTime={d.created_at}>
                       {new Date(d.created_at).toLocaleString("th-TH", {
@@ -268,7 +268,7 @@ export default function RecordsList({
                       <path d="m6 9 6 6 6-6" />
                     </svg>
                   </summary>
-                  <dl className="mt-1 space-y-0.5 px-1">
+                  <dl className="absolute inset-x-0 bottom-full z-20 mb-1 space-y-0.5 rounded-md border border-border bg-surface p-2 shadow-[0_6px_16px_rgba(31,30,26,0.16)]">
                     {[
                       d.direction !== "unknown" && [
                         "ทิศทาง",
