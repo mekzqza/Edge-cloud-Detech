@@ -245,7 +245,7 @@ export default function RecordsList({
                   )}
                 </div>
                 {/* ponytail: <details> ของเบราว์เซอร์ — ไม่ต้องมี state เปิด/ปิด */}
-                <details className="mt-3 text-xs text-ink-muted">
+                <details className="group mt-3 text-xs text-ink-muted">
                   <summary className="flex cursor-pointer items-center justify-between gap-2 rounded px-1 py-0.5 marker:content-[''] hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
                     <time dateTime={d.created_at}>
                       {new Date(d.created_at).toLocaleString("th-TH", {
@@ -255,9 +255,18 @@ export default function RecordsList({
                         minute: "2-digit",
                       })}
                     </time>
-                    <span aria-hidden className="text-ink-faint">
-                      ▾
-                    </span>
+                    <svg
+                      aria-hidden
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3.5 w-3.5 shrink-0 text-ink-faint transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
                   </summary>
                   <dl className="mt-1 space-y-0.5 px-1">
                     {[
