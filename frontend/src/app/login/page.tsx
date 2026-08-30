@@ -1,12 +1,34 @@
+import Link from "next/link";
+import Plate from "../Plate";
 import GoogleButton from "../GoogleButton";
 
 export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
-      <div className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-surface p-6">
-        <h1 className="text-lg font-medium">เข้าสู่ระบบ</h1>
+      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-surface p-8 shadow-[0_6px_24px_rgba(31,30,26,0.08)]">
+        <div className="space-y-3 text-center">
+          {/* ป้ายทะเบียนตัวเดียวกับที่ใช้ในลิสต์ — เป็นโลโก้ในตัว ไม่ต้องมีไฟล์รูป */}
+          <div className="flex justify-center">
+            <Plate plate="1กก 1234" province="ขอนแก่น" />
+          </div>
+          <h1 className="text-lg font-medium">Edge Cloud Detech</h1>
+          <p className="text-sm text-ink-muted">
+            ระบบอ่านป้ายทะเบียนรถเข้า-ออก
+          </p>
+        </div>
 
         <GoogleButton label="เข้าสู่ระบบด้วย Google" />
+
+        <p className="border-t border-border pt-4 text-center text-xs text-ink-faint">
+          ยังไม่ล็อกอินก็{" "}
+          <Link
+            href="/"
+            className="text-info underline-offset-4 hover:underline"
+          >
+            ดูภาพรวมระบบ
+          </Link>{" "}
+          ได้ · ล็อกอินแล้วจะเห็นบันทึกรถและรถของคุณ
+        </p>
       </div>
     </main>
   );
