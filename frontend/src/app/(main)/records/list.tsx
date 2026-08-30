@@ -180,7 +180,7 @@ export default function RecordsList({
         </p>
       ) : (
         <div
-          className={`mt-6 grid gap-5 transition-opacity ${busy ? "opacity-50" : ""}`}
+          className={`mt-6 grid items-start gap-5 transition-opacity ${busy ? "opacity-50" : ""}`}
           style={{
             gridTemplateColumns: `repeat(auto-fill,minmax(${CARD_MIN_WIDTH}px,1fr))`,
           }}
