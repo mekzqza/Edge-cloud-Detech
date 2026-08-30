@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import NotificationBell from "@/app/NotificationBell";
 import Nav from "./Nav";
+import ThemeToggle from "@/app/ThemeToggle";
 
 export default async function MainLayout({
   children,
@@ -61,9 +62,10 @@ export default async function MainLayout({
         </div>
       </aside>
       <div className="flex flex-1 flex-col">
-        <header className="flex min-h-11 items-center justify-end border-b border-border bg-surface px-6 py-2">
+        <header className="flex min-h-11 items-center justify-end gap-2 border-b border-border bg-surface px-6 py-2">
           {/* กระดิ่งเรียก /api/notifications ที่ต้องมี token — guest ไม่ต้องมี */}
           {session && <NotificationBell token={session.user.backendToken} />}
+          <ThemeToggle />
         </header>
         <main className="flex-1 p-6">{children}</main>
       </div>
