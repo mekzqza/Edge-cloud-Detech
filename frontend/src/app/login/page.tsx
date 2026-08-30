@@ -4,7 +4,14 @@ import GoogleButton from "../GoogleButton";
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
+    <main
+      className="flex min-h-screen items-center justify-center bg-cover bg-center p-6"
+      style={{
+        // ponytail: overlay เป็นชั้นแรกของ background เดียวกัน — ไม่ต้องมี div ซ้อน
+        backgroundImage:
+          "linear-gradient(rgba(31,30,26,0.45), rgba(31,30,26,0.45)), url(/backgourd.jpg)",
+      }}
+    >
       <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-surface p-8 shadow-[0_6px_24px_rgba(31,30,26,0.08)]">
         <div className="space-y-3 text-center">
           {/* ป้ายทะเบียนตัวเดียวกับที่ใช้ในลิสต์ — เป็นโลโก้ในตัว ไม่ต้องมีไฟล์รูป */}
