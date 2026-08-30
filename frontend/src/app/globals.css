@@ -35,3 +35,8 @@ body {
     color: var(--color-ink);
     font-family: var(--font-sans);
 }
+
+/* พับ sidebar (#sidebar checked) = เหลือแค่ไอคอน — ที่เหลือซ่อน */
+#sidebar:checked ~ aside .rail-hide {
+    display: none;
+}
