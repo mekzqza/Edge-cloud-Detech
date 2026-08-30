@@ -12,6 +12,10 @@ const PAGE_WINDOW = 2; // แสดงเลขหน้ารอบหน้า
 const CARD_MIN_WIDTH = 220; // ความกว้างขั้นต่ำของการ์ด (px) — กริดจัดคอลัมน์เองตามจอ
 /* ========================= */
 
+// "–" = ไม่มีค่า (อ่านฟิลด์นั้นไม่ออก)
+const pct = (c: number | null | undefined) =>
+  c == null ? "–" : `${Math.round(c * 100)}%`;
+
 type Page = { rows: Detection[]; total: number; denied: number };
 
 // ตัวกรองผลอ่านป้าย — "" = ไม่กรอง
@@ -25,8 +29,11 @@ const plateFilters = [
 // direction: "out" = เฉพาะกล้องขาออก, ไม่ใส่ = ทุกทิศทาง (รวมแถวเก่าที่ยังเป็น unknown)
 export default function RecordsList({
   direction,
+  token,
 }: {
   direction?: "in" | "out";
+  /** token ของ backend — admin เท่านั้นที่จะได้ค่าดิบ (confidence/plate_raw) กลับมา */
+  token: string;
 }) {
   const noun = direction === "out" ? "รถออก" : "รถเข้า";
   const [data, setData] = useState<Page | null>(null);
@@ -47,10 +54,12 @@ export default function RecordsList({
         ...(plateFilter ? { plate: plateFilter } : {}),
         ...(direction ? { direction } : {}),
       });
-      const res = await fetch(`/api/detections?${q}`);
+      const res = await fetch(`/api/detections?${q}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setData(res.ok ? await res.json() : { rows: [], total: 0, denied: 0 });
     });
-  }, [page, onlyDenied, date, plateFilter, direction]);
+  }, [page, onlyDenied, date, plateFilter, direction, token]);
 
   useEffect(() => {
     load();
@@ -235,26 +244,56 @@ export default function RecordsList({
                     </span>
                   )}
                 </div>
-                <div className="mt-3 flex items-baseline justify-between gap-2 text-xs text-ink-muted">
-                  {d.direction !== "unknown" && (
-                    <span className="rounded bg-surface-muted px-1.5 py-0.5">
-                      {d.direction === "in" ? "เข้า" : "ออก"}
-                    </span>
-                  )}
-                  <time dateTime={d.created_at}>
-                    {new Date(d.created_at).toLocaleString("th-TH", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </time>
-                  {d.confidence != null && (
-                    <span className="font-mono text-ink-faint">
-                      {Math.round(d.confidence * 100)}%
-                    </span>
-                  )}
-                </div>
+                {/* ponytail: <details> ของเบราว์เซอร์ — ไม่ต้องมี state เปิด/ปิด */}
+                <details className="group relative mt-3 text-xs text-ink-muted">
+                  <summary className="flex cursor-pointer items-center justify-between gap-2 rounded px-1 py-0.5 marker:content-[''] hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+                    <time dateTime={d.created_at}>
+                      {new Date(d.created_at).toLocaleString("th-TH", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                    <svg
+                      aria-hidden
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3.5 w-3.5 shrink-0 text-ink-faint transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </summary>
+                  <dl className="absolute inset-x-0 bottom-full z-20 mb-1 space-y-0.5 rounded-md border border-border bg-surface p-2 shadow-[0_6px_16px_rgba(31,30,26,0.16)]">
+                    {[
+                      d.direction !== "unknown" && [
+                        "ทิศทาง",
+                        d.direction === "in" ? "เข้า" : "ออก",
+                      ],
+                      // มีค่าก็ต่อเมื่อเป็น admin — backend ตัดทิ้งให้คนอื่นไปแล้ว
+                      d.confidence != null && ["กล่องป้าย", pct(d.confidence)],
+                      d.confidence != null && [
+                        "เลขทะเบียน",
+                        pct(d.plate_confidence),
+                      ],
+                      d.confidence != null && [
+                        "จังหวัด",
+                        pct(d.province_confidence),
+                      ],
+                    ]
+                      .filter((r): r is [string, string] => Array.isArray(r))
+                      .map(([k, v]) => (
+                        <div key={k} className="flex gap-1">
+                          <dt>{k}</dt>
+                          <dd className="font-mono text-ink">= {v}</dd>
+                        </div>
+                      ))}
+                  </dl>
+                </details>
               </figcaption>
             </figure>
           ))}

@@ -1,5 +1,5 @@
 const { Pool } = require("pg");
-const { hashPassword } = require("./auth");
+const { deriveUsername } = require("./auth");
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -20,7 +20,7 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS users (
       id            SERIAL PRIMARY KEY,
       username      TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
+      password_hash TEXT,                            -- ponytail: เลิกใช้แล้ว (Google อย่างเดียว) เก็บไว้กัน rollback
       role          TEXT NOT NULL DEFAULT 'user'   -- 'user' | 'admin'
     )
   `);
@@ -80,6 +80,13 @@ async function initDb() {
       ADD COLUMN IF NOT EXISTS direction TEXT NOT NULL DEFAULT 'unknown'
       CHECK (direction IN ('in','out','unknown'))`);
 
+  // conf แยก 3 ตัวจาก Pi: confidence = YOLO ของกล่องป้าย, อีกสองตัวมาจาก OCR/fuzzy
+  // nullable — รุ่นเก่าไม่ส่งมา และ OCR อ่านไม่ออกก็ส่ง null ได้
+  await pool.query(`
+    ALTER TABLE detections
+      ADD COLUMN IF NOT EXISTS plate_confidence REAL,
+      ADD COLUMN IF NOT EXISTS province_confidence REAL`);
+
   // plate = ค่าที่ระบบเชื่อ (จับคู่รถได้ก็ใช้ป้ายที่ลงทะเบียนไว้), plate_raw = ค่าที่ Pi อ่านได้จริง
   // เติมทั้งสองช่องเสมอ ไม่แมตช์ก็เท่ากัน — fallback จึงไม่ต้องมี COALESCE/?? ที่ไหนเลย
   await pool.query(`
@@ -133,13 +140,18 @@ async function initDb() {
       PRIMARY KEY (notification_id, user_id)
     )`);
 
-  const adminUser = process.env.ADMIN_USER || "admin";
-  const adminPass = process.env.ADMIN_PASSWORD || "admin1234";
+  // admin คนแรก — จองแถวให้ ADMIN_EMAIL ไว้ก่อน จะได้เป็น admin ตั้งแต่ล็อกอิน Google ครั้งแรก
+  const adminEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+  if (!adminEmail) throw new Error("ADMIN_EMAIL is not set");
   await pool.query(
-    `INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'admin')
-     ON CONFLICT (username) DO NOTHING`,
-    [adminUser, hashPassword(adminPass)],
+    `INSERT INTO users (username, email, role) VALUES ($1, $2, 'admin')
+     ON CONFLICT DO NOTHING`,
+    [deriveUsername(adminEmail), adminEmail],
   );
+  // มีแถวอยู่แล้ว (เคยล็อกอินมาก่อน หรือเพิ่งเปลี่ยน ADMIN_EMAIL) → เลื่อนขั้นให้
+  await pool.query("UPDATE users SET role = 'admin' WHERE email = $1", [
+    adminEmail,
+  ]);
 
   console.log("DB ready");
 }

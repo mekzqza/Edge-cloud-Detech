@@ -2,7 +2,7 @@ const { Router } = require("express");
 const fs = require("fs");
 const path = require("path");
 const { pool } = require("../db");
-const { requireAdmin } = require("../auth");
+const { requireAdmin, isAdmin } = require("../auth");
 const { buildWhere } = require("./detections-filter");
 const { matchVehicle } = require("./detections-match");
 
@@ -15,8 +15,35 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 // pk กล้องที่ Pi ส่งมา → ทิศทาง; ค่าอื่นหรือไม่ส่งมา = unknown
 const DIRECTION = { IN: "in", OUT: "out" };
 
+// ค่าดิบของ pipeline (conf ทั้งสามตัว + ป้ายก่อนจับคู่) — admin เท่านั้นที่เห็น
+// ตัดที่ backend ไม่ใช่ซ่อนด้วย UI ค่าจะได้ไม่ติดไปกับ response ให้ใครเปิด devtools อ่าน
+const INTERNAL = [
+  "confidence",
+  "plate_confidence",
+  "province_confidence",
+  "plate_raw",
+];
+
+const redact = (rows, admin) =>
+  admin
+    ? rows
+    : rows.map((r) =>
+        Object.fromEntries(
+          Object.entries(r).filter(([k]) => !INTERNAL.includes(k)),
+        ),
+      );
+
 router.post("/detections", async (req, res) => {
-  const { image, plate, province, confidence, captured_at, camera } = req.body;
+  const {
+    image,
+    plate,
+    province,
+    confidence,
+    plate_confidence,
+    province_confidence,
+    captured_at,
+    camera,
+  } = req.body;
   if (
     typeof image !== "string" ||
     typeof plate !== "string" ||
@@ -26,6 +53,16 @@ router.post("/detections", async (req, res) => {
     return res.status(400).json({
       error: "ต้องมี image (base64), plate, province, confidence (ตัวเลข)",
     });
+  }
+  // conf ย่อยเป็นของแถม — Pi รุ่นเก่าไม่ส่ง / OCR อ่านไม่ออกก็ส่ง null ได้ แต่ส่งมาแล้วต้องเป็นตัวเลข
+  if (
+    [plate_confidence, province_confidence].some(
+      (c) => c != null && typeof c !== "number",
+    )
+  ) {
+    return res
+      .status(400)
+      .json({ error: "plate_confidence / province_confidence ต้องเป็นตัวเลข" });
   }
   if (captured_at != null && typeof captured_at !== "string") {
     return res
@@ -47,8 +84,8 @@ router.post("/detections", async (req, res) => {
   const finalProvince = match ? match.province : province;
 
   const result = await pool.query(
-    `INSERT INTO detections (filename, plate, plate_raw, province, confidence, captured_at, direction, matched_vehicle_id, access_granted)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::int, $8::int IS NOT NULL)
+    `INSERT INTO detections (filename, plate, plate_raw, province, confidence, plate_confidence, province_confidence, captured_at, direction, matched_vehicle_id, access_granted)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::int, $10::int IS NOT NULL)
      RETURNING *`,
     [
       filename,
@@ -56,6 +93,8 @@ router.post("/detections", async (req, res) => {
       plate,
       finalProvince,
       confidence,
+      plate_confidence ?? null,
+      province_confidence ?? null,
       captured_at ?? null,
       direction,
       match?.id ?? null,
@@ -74,13 +113,14 @@ router.post("/detections", async (req, res) => {
 
 router.get("/detections", async (req, res) => {
   const { where, params } = buildWhere(req.query);
+  const admin = await isAdmin(req);
 
   if (req.query.limit == null) {
     const result = await pool.query(
       `SELECT * FROM detections ${where} ORDER BY id DESC`,
       params,
     );
-    return res.json(result.rows);
+    return res.json(redact(result.rows, admin));
   }
 
   const limit = Number(req.query.limit);
@@ -116,7 +156,7 @@ router.get("/detections", async (req, res) => {
       base.params,
     ),
   ]);
-  res.json({ rows: page.rows, ...counts.rows[0] });
+  res.json({ rows: redact(page.rows, admin), ...counts.rows[0] });
 });
 
 router.get("/detections/plate/:plate", async (req, res) => {
@@ -124,10 +164,11 @@ router.get("/detections/plate/:plate", async (req, res) => {
   if (!q) return res.status(400).json({ error: "ระบุเลขทะเบียน" });
   const { rows } = await pool.query(
     // ค้นทั้งสองช่อง: คนที่จำค่าที่ระบบแก้ให้ และคนที่จำค่าที่ OCR อ่านมา ต้องเจอเหมือนกัน
+    // (ค้นด้วย plate_raw ได้ทุกคน แค่ไม่เห็นค่ามัน — ไม่งั้นผลค้นของ user จะหายไปเฉย ๆ)
     "SELECT * FROM detections WHERE plate ILIKE $1 OR plate_raw ILIKE $1 ORDER BY created_at DESC LIMIT 1000",
     [`%${q}%`],
   );
-  res.json(rows);
+  res.json(redact(rows, await isAdmin(req)));
 });
 
 router.get("/detections/time/:hours", async (req, res) => {
@@ -139,7 +180,7 @@ router.get("/detections/time/:hours", async (req, res) => {
     "SELECT * FROM detections WHERE created_at >= NOW() - make_interval(hours => $1) ORDER BY created_at DESC",
     [hours],
   );
-  res.json(result.rows);
+  res.json(redact(result.rows, await isAdmin(req)));
 });
 
 router.get("/detections/last/:count", async (req, res) => {
@@ -151,7 +192,7 @@ router.get("/detections/last/:count", async (req, res) => {
     "SELECT * FROM detections ORDER BY created_at DESC LIMIT $1",
     [count],
   );
-  res.json(result.rows);
+  res.json(redact(result.rows, await isAdmin(req)));
 });
 
 router.patch("/detections/:id", requireAdmin, async (req, res) => {

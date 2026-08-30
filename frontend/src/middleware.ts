@@ -1,17 +1,19 @@
 import { auth } from "@/auth";
 
-// ทุกหน้าต้อง login ก่อน ยกเว้น /login กับ /register
+// เปิดให้คนที่ยังไม่ล็อกอินดูได้แค่หน้าภาพรวม ("/") — ที่เหลือเด้งไป /login
 export default auth((req) => {
-  const isPublic = ["/login", "/register"].includes(req.nextUrl.pathname);
-  if (!req.auth && !isPublic) {
-    return Response.redirect(new URL("/login", req.nextUrl));
+  const { pathname } = req.nextUrl;
+  if (pathname === "/login") {
+    if (req.auth) return Response.redirect(new URL("/", req.nextUrl));
+    return;
   }
-  if (req.auth && isPublic) {
-    return Response.redirect(new URL("/", req.nextUrl));
+  if (!req.auth && pathname !== "/") {
+    return Response.redirect(new URL("/login", req.nextUrl));
   }
 });
 
 export const config = {
-  // ข้าม /api (NextAuth + proxy ไป backend) และไฟล์ static ของ Next
-  matcher: ["/((?!api|_next/static|_next/image|favicon.svg).*)"],
+  // ข้าม /api (NextAuth + proxy ไป backend), static ของ Next และไฟล์ใน public/
+  // (อะไรที่มีนามสกุล — ไม่งั้นรูปพื้นหลัง/ไอคอนโดนเด้งไป /login)
+  matcher: ["/((?!api|_next/static|_next/image|.*\\..*).*)"],
 };

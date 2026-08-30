@@ -6,22 +6,28 @@ description: วิธี build/รัน/ทดสอบ frontend (Next.js + Ne
 # Verify frontend (Next.js + NextAuth)
 
 เครื่อง dev นี้ไม่มี Docker/Postgres — ใช้ stub backend แทน (contract อยู่ที่
-`backend/src/routes/auth.js`: POST /api/login|/api/register → `{token, role}`)
+`backend/src/routes/oauth.js`: POST /api/oauth `{email, emailVerified}` +
+header `x-internal-secret` → `{token, role}`)
 
-1. stub backend: node server ธรรมดาบนพอร์ต 4000 ตอบ /api/login, /api/register, /api/detections
+**ล็อกอินมีทางเดียวคือ Google** — ไม่มี /api/login, /api/register, ไม่มีหน้า /register แล้ว
+
+1. stub backend: node server ธรรมดาบนพอร์ต 4000 ตอบ /api/oauth, /api/detections
 2. build + รัน production:
    ```powershell
    cd frontend
    $env:AUTH_SECRET = "test"; $env:BACKEND_URL = "http://localhost:4000"; $env:AUTH_TRUST_HOST = "true"
+   $env:INTERNAL_SECRET = "test"; $env:AUTH_GOOGLE_ID = "..."; $env:AUTH_GOOGLE_SECRET = "..."
    npm run build; npx next start -p 5199
    ```
    `AUTH_TRUST_HOST=true` จำเป็นตอน production ไม่งั้น auth() โยน UntrustedHost → หน้า 500
-3. ยิง flow ด้วย curl + cookie jar:
+3. ที่ curl ทดสอบได้โดยไม่ต้องมี Google จริง:
    - GET / (ไม่มี cookie) → 302 /login (middleware)
-   - GET /api/auth/csrf → เอา csrfToken, แล้ว POST /api/auth/callback/credentials
-     (form-urlencoded: csrfToken, username, password) → 302 + `authjs.session-token`
-   - GET /api/auth/session → `{user:{name, role, backendToken}}`
-   - POST /api/auth/signout (พร้อม csrfToken) → session เป็น null
+   - GET /login → 200 มีปุ่ม Google
+   - GET /api/auth/providers → มี `google` ตัวเดียว
+   - GET /api/auth/session → `null`
+4. flow เต็ม (กด Google จริง) ต้องมี OAuth client จริง และเพิ่ม redirect URI
+   `http://localhost:5199/api/auth/callback/google` ใน Google Cloud Console
+   — เสร็จแล้ว GET /api/auth/session ต้องได้ `{user:{name, email, role, backendToken}}`
 
 ## กับดักที่เจอแล้ว
 
@@ -29,3 +35,4 @@ description: วิธี build/รัน/ทดสอบ frontend (Next.js + Ne
   `/api/auth/[...nextauth]` (dynamic route) แล้ว NextAuth โดน proxy ไป backend
 - rewrite destination ถูก bake ตอน `next build` (ไม่อ่าน env ตอน start) —
   ใน docker ไม่กระทบเพราะ nginx แยก /api ก่อนถึง Next
+- backend โยน error ตอน boot ถ้าไม่ตั้ง `ADMIN_EMAIL` — ตั้งใจ ไม่งั้นไม่มีใครเป็น admin

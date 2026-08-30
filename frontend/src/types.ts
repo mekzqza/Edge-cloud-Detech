@@ -8,9 +8,13 @@ export type Detection = {
   label: string | null;
   created_at: string;
   plate: string | null; // ค่าที่ระบบเชื่อ — จับคู่รถได้ = ป้ายที่ลงทะเบียนไว้ ไม่ได้ = เท่ากับ plate_raw
-  plate_raw: string | null; // ค่าที่ OCR อ่านมาจริง ๆ (แถวเก่าก่อนมีคอลัมน์นี้เป็น null)
   province: string | null;
-  confidence: number | null;
+  // 4 ฟิลด์ล่างเป็นค่าดิบของ pipeline — backend ส่งมาให้เฉพาะ admin
+  // ไม่ใช่ admin = ไม่มี key นี้เลย (undefined) เช็ค != null ที่เดียวก็ครอบทั้งสองกรณี
+  plate_raw?: string | null; // ค่าที่ OCR อ่านมาจริง ๆ (แถวเก่าก่อนมีคอลัมน์นี้เป็น null)
+  confidence?: number | null; // YOLO det conf ของกล่องป้าย
+  plate_confidence?: number | null; // OCR conf ของเลขทะเบียน
+  province_confidence?: number | null; // fuzzy match conf ของจังหวัด
   verified: boolean | null;
   access_granted: boolean; // ตรงกับ vehicles ที่ approved ไหม — คิดตอนบันทึก ไม่คำนวณใหม่
   direction: "in" | "out" | "unknown";

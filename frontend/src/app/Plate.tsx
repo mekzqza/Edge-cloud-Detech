@@ -12,12 +12,12 @@ export default function Plate({
 }) {
   return (
     <span className="inline-flex flex-col items-center gap-1">
-      <span className="inline-flex flex-col items-center rounded-[5px] border-2 border-ink bg-white px-3 py-1 leading-none shadow-[inset_0_0_0_2px_#fff]">
-        <span className="font-mono text-base font-medium tracking-[0.12em] text-ink">
+      <span className="inline-flex flex-col items-center rounded-[5px] border-2 border-[#1f1e1a] bg-white px-3 py-1 leading-none shadow-[inset_0_0_0_2px_#fff]">
+        <span className="font-mono text-base font-medium tracking-[0.12em] text-[#1f1e1a]">
           {plate}
         </span>
         {province && (
-          <span className="mt-1 text-[10px] text-ink">{province}</span>
+          <span className="mt-1 text-[10px] text-[#1f1e1a]">{province}</span>
         )}
       </span>
       {raw && raw !== plate && (

@@ -53,6 +53,7 @@ export default function HistoryList({
     startTransition(async () => {
       const res = await fetch(
         `/api/detections/plate/${encodeURIComponent(plate)}`,
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       const found: Detection[] = res.ok ? await res.json() : [];
       setRows(found);

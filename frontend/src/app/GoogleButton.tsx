@@ -7,7 +7,7 @@ export default function GoogleButton({ label }: { label: string }) {
     <button
       type="button"
       onClick={() => signIn("google", { callbackUrl: "/" })}
-      className="flex w-full items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium"
+      className="flex w-full items-center justify-center gap-2 rounded-md border border-border px-3 py-2.5 text-sm font-medium transition-colors hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
     >
       {/* โลโก้ G ทางการ — inline ไม่ต้องโหลดไฟล์/ลง lib icon */}
       <svg viewBox="0 0 48 48" aria-hidden className="h-4 w-4">

@@ -4,20 +4,15 @@ const SECRET = process.env.AUTH_SECRET;
 
 const TOKEN_TTL_SEC = 7 * 24 * 60 * 60; // 7 วัน
 
-function hashPassword(plain) {
-  const salt = crypto.randomBytes(16);
-  const hash = crypto.scryptSync(plain, salt, 64);
-  return `${salt.toString("hex")}:${hash.toString("hex")}`;
-}
+const USERNAME_MAX_LEN = 24;
 
-function verifyPassword(plain, stored) {
-  const [saltHex, hashHex] = String(stored).split(":");
-  if (!saltHex || !hashHex) return false;
-  const hash = crypto.scryptSync(plain, Buffer.from(saltHex, "hex"), 64);
-  const expected = Buffer.from(hashHex, "hex");
-  return (
-    hash.length === expected.length && crypto.timingSafeEqual(hash, expected)
-  );
+// ไม่มี username ให้กรอกแล้ว — ชื่อที่แสดงมาจาก local-part ของอีเมล
+function deriveUsername(emailLower) {
+  const base = emailLower
+    .split("@")[0]
+    .replace(/[^a-z0-9._-]/g, "")
+    .slice(0, USERNAME_MAX_LEN);
+  return base.length >= 3 ? base : "user";
 }
 
 function b64url(buf) {
@@ -82,6 +77,11 @@ async function loadUser(req) {
   return rows[0] ?? null;
 }
 
+// อ่าน role โดยไม่บังคับล็อกอิน — route ที่เปิดสาธารณะแต่ต้องซ่อนบางฟิลด์จากคนทั่วไป
+async function isAdmin(req) {
+  return (await loadUser(req))?.role === "admin";
+}
+
 async function requireUser(req, res, next) {
   try {
     const user = await loadUser(req);
@@ -107,8 +107,8 @@ async function requireAdmin(req, res, next) {
 }
 
 module.exports = {
-  hashPassword,
-  verifyPassword,
+  deriveUsername,
+  isAdmin,
   signToken,
   verifyToken,
   requireAdmin,

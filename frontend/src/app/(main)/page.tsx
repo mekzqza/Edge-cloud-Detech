@@ -215,13 +215,19 @@ export default function OverviewPage() {
         </div>
 
         <div className="rounded-lg border border-border bg-surface p-4">
-          <h2 className="font-medium">รถเข้าล่าสุด</h2>
+          <h2 className="font-medium">กิจกรรมล่าสุด</h2>
           <ul className="mt-3 space-y-2">
             {(lastDetechtion ?? []).map((d) => (
               <li
                 key={d.id}
                 className="flex items-center gap-2 rounded-md bg-surface-muted px-3 py-2 text-sm"
               >
+                <span className="shrink-0 font-mono text-xs text-ink-muted">
+                  {new Date(d.created_at).toLocaleTimeString("th-TH", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
                 <span className="font-mono font-medium">{d.plate ?? "—"}</span>
                 <span className="truncate text-ink-muted">
                   {d.province ?? ""}
