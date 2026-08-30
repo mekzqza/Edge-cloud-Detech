@@ -80,6 +80,13 @@ async function initDb() {
       ADD COLUMN IF NOT EXISTS direction TEXT NOT NULL DEFAULT 'unknown'
       CHECK (direction IN ('in','out','unknown'))`);
 
+  // conf แยก 3 ตัวจาก Pi: confidence = YOLO ของกล่องป้าย, อีกสองตัวมาจาก OCR/fuzzy
+  // nullable — รุ่นเก่าไม่ส่งมา และ OCR อ่านไม่ออกก็ส่ง null ได้
+  await pool.query(`
+    ALTER TABLE detections
+      ADD COLUMN IF NOT EXISTS plate_confidence REAL,
+      ADD COLUMN IF NOT EXISTS province_confidence REAL`);
+
   // plate = ค่าที่ระบบเชื่อ (จับคู่รถได้ก็ใช้ป้ายที่ลงทะเบียนไว้), plate_raw = ค่าที่ Pi อ่านได้จริง
   // เติมทั้งสองช่องเสมอ ไม่แมตช์ก็เท่ากัน — fallback จึงไม่ต้องมี COALESCE/?? ที่ไหนเลย
   await pool.query(`

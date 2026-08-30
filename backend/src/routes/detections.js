@@ -16,7 +16,16 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const DIRECTION = { IN: "in", OUT: "out" };
 
 router.post("/detections", async (req, res) => {
-  const { image, plate, province, confidence, captured_at, camera } = req.body;
+  const {
+    image,
+    plate,
+    province,
+    confidence,
+    plate_confidence,
+    province_confidence,
+    captured_at,
+    camera,
+  } = req.body;
   if (
     typeof image !== "string" ||
     typeof plate !== "string" ||
@@ -26,6 +35,16 @@ router.post("/detections", async (req, res) => {
     return res.status(400).json({
       error: "ต้องมี image (base64), plate, province, confidence (ตัวเลข)",
     });
+  }
+  // conf ย่อยเป็นของแถม — Pi รุ่นเก่าไม่ส่ง / OCR อ่านไม่ออกก็ส่ง null ได้ แต่ส่งมาแล้วต้องเป็นตัวเลข
+  if (
+    [plate_confidence, province_confidence].some(
+      (c) => c != null && typeof c !== "number",
+    )
+  ) {
+    return res
+      .status(400)
+      .json({ error: "plate_confidence / province_confidence ต้องเป็นตัวเลข" });
   }
   if (captured_at != null && typeof captured_at !== "string") {
     return res
@@ -47,8 +66,8 @@ router.post("/detections", async (req, res) => {
   const finalProvince = match ? match.province : province;
 
   const result = await pool.query(
-    `INSERT INTO detections (filename, plate, plate_raw, province, confidence, captured_at, direction, matched_vehicle_id, access_granted)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::int, $8::int IS NOT NULL)
+    `INSERT INTO detections (filename, plate, plate_raw, province, confidence, plate_confidence, province_confidence, captured_at, direction, matched_vehicle_id, access_granted)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::int, $10::int IS NOT NULL)
      RETURNING *`,
     [
       filename,
@@ -56,6 +75,8 @@ router.post("/detections", async (req, res) => {
       plate,
       finalProvince,
       confidence,
+      plate_confidence ?? null,
+      province_confidence ?? null,
       captured_at ?? null,
       direction,
       match?.id ?? null,
