@@ -12,6 +12,10 @@ const PAGE_WINDOW = 2; // แสดงเลขหน้ารอบหน้า
 const CARD_MIN_WIDTH = 220; // ความกว้างขั้นต่ำของการ์ด (px) — กริดจัดคอลัมน์เองตามจอ
 /* ========================= */
 
+// "–" = ไม่มีค่า (อ่านฟิลด์นั้นไม่ออก)
+const pct = (c: number | null | undefined) =>
+  c == null ? "–" : `${Math.round(c * 100)}%`;
+
 type Page = { rows: Detection[]; total: number; denied: number };
 
 // ตัวกรองผลอ่านป้าย — "" = ไม่กรอง
@@ -240,32 +244,40 @@ export default function RecordsList({
                     </span>
                   )}
                 </div>
-                <div className="mt-3 flex items-baseline justify-between gap-2 text-xs text-ink-muted">
-                  {d.direction !== "unknown" && (
-                    <span className="rounded bg-surface-muted px-1.5 py-0.5">
-                      {d.direction === "in" ? "เข้า" : "ออก"}
-                    </span>
-                  )}
-                  <time dateTime={d.created_at}>
-                    {new Date(d.created_at).toLocaleString("th-TH", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </time>
-                  {/* มีค่าก็ต่อเมื่อเป็น admin — backend ตัดทิ้งให้คนอื่นไปแล้ว */}
-                  {d.confidence != null && (
-                    <span
-                      className="font-mono text-ink-faint"
-                      title="ความมั่นใจ: กล่องป้าย / เลขทะเบียน / จังหวัด"
-                    >
-                      {[d.confidence, d.plate_confidence, d.province_confidence]
-                        .map((c) => (c == null ? "–" : `${Math.round(c * 100)}%`))
-                        .join(" ")}
-                    </span>
-                  )}
-                </div>
+                <dl className="mt-3 space-y-0.5 text-xs text-ink-muted">
+                  {[
+                    d.direction !== "unknown" && [
+                      "ทิศทาง",
+                      d.direction === "in" ? "เข้า" : "ออก",
+                    ],
+                    [
+                      "เวลา",
+                      new Date(d.created_at).toLocaleString("th-TH", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }),
+                    ],
+                    // มีค่าก็ต่อเมื่อเป็น admin — backend ตัดทิ้งให้คนอื่นไปแล้ว
+                    d.confidence != null && ["กล่องป้าย", pct(d.confidence)],
+                    d.confidence != null && [
+                      "เลขทะเบียน",
+                      pct(d.plate_confidence),
+                    ],
+                    d.confidence != null && [
+                      "จังหวัด",
+                      pct(d.province_confidence),
+                    ],
+                  ]
+                    .filter((r): r is [string, string] => Array.isArray(r))
+                    .map(([k, v]) => (
+                      <div key={k} className="flex gap-1">
+                        <dt>{k}</dt>
+                        <dd className="font-mono text-ink">= {v}</dd>
+                      </div>
+                    ))}
+                </dl>
               </figcaption>
             </figure>
           ))}
