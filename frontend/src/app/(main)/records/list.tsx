@@ -25,8 +25,11 @@ const plateFilters = [
 // direction: "out" = เฉพาะกล้องขาออก, ไม่ใส่ = ทุกทิศทาง (รวมแถวเก่าที่ยังเป็น unknown)
 export default function RecordsList({
   direction,
+  token,
 }: {
   direction?: "in" | "out";
+  /** token ของ backend — admin เท่านั้นที่จะได้ค่าดิบ (confidence/plate_raw) กลับมา */
+  token: string;
 }) {
   const noun = direction === "out" ? "รถออก" : "รถเข้า";
   const [data, setData] = useState<Page | null>(null);
@@ -47,10 +50,12 @@ export default function RecordsList({
         ...(plateFilter ? { plate: plateFilter } : {}),
         ...(direction ? { direction } : {}),
       });
-      const res = await fetch(`/api/detections?${q}`);
+      const res = await fetch(`/api/detections?${q}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setData(res.ok ? await res.json() : { rows: [], total: 0, denied: 0 });
     });
-  }, [page, onlyDenied, date, plateFilter, direction]);
+  }, [page, onlyDenied, date, plateFilter, direction, token]);
 
   useEffect(() => {
     load();
@@ -249,9 +254,15 @@ export default function RecordsList({
                       minute: "2-digit",
                     })}
                   </time>
+                  {/* มีค่าก็ต่อเมื่อเป็น admin — backend ตัดทิ้งให้คนอื่นไปแล้ว */}
                   {d.confidence != null && (
-                    <span className="font-mono text-ink-faint">
-                      {Math.round(d.confidence * 100)}%
+                    <span
+                      className="font-mono text-ink-faint"
+                      title="ความมั่นใจ: กล่องป้าย / เลขทะเบียน / จังหวัด"
+                    >
+                      {[d.confidence, d.plate_confidence, d.province_confidence]
+                        .map((c) => (c == null ? "–" : `${Math.round(c * 100)}%`))
+                        .join(" ")}
                     </span>
                   )}
                 </div>

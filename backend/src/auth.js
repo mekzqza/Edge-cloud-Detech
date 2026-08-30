@@ -77,6 +77,11 @@ async function loadUser(req) {
   return rows[0] ?? null;
 }
 
+// อ่าน role โดยไม่บังคับล็อกอิน — route ที่เปิดสาธารณะแต่ต้องซ่อนบางฟิลด์จากคนทั่วไป
+async function isAdmin(req) {
+  return (await loadUser(req))?.role === "admin";
+}
+
 async function requireUser(req, res, next) {
   try {
     const user = await loadUser(req);
@@ -103,6 +108,7 @@ async function requireAdmin(req, res, next) {
 
 module.exports = {
   deriveUsername,
+  isAdmin,
   signToken,
   verifyToken,
   requireAdmin,
