@@ -244,40 +244,47 @@ export default function RecordsList({
                     </span>
                   )}
                 </div>
-                <dl className="mt-3 space-y-0.5 text-xs text-ink-muted">
-                  {[
-                    d.direction !== "unknown" && [
-                      "ทิศทาง",
-                      d.direction === "in" ? "เข้า" : "ออก",
-                    ],
-                    [
-                      "เวลา",
-                      new Date(d.created_at).toLocaleString("th-TH", {
+                {/* ponytail: <details> ของเบราว์เซอร์ — ไม่ต้องมี state เปิด/ปิด */}
+                <details className="mt-3 text-xs text-ink-muted">
+                  <summary className="flex cursor-pointer items-center justify-between gap-2 rounded px-1 py-0.5 marker:content-[''] hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+                    <time dateTime={d.created_at}>
+                      {new Date(d.created_at).toLocaleString("th-TH", {
                         day: "numeric",
                         month: "short",
                         hour: "2-digit",
                         minute: "2-digit",
-                      }),
-                    ],
-                    // มีค่าก็ต่อเมื่อเป็น admin — backend ตัดทิ้งให้คนอื่นไปแล้ว
-                    d.confidence != null && ["กล่องป้าย", pct(d.confidence)],
-                    d.confidence != null && [
-                      "เลขทะเบียน",
-                      pct(d.plate_confidence),
-                    ],
-                    d.confidence != null && [
-                      "จังหวัด",
-                      pct(d.province_confidence),
-                    ],
-                  ]
-                    .filter((r): r is [string, string] => Array.isArray(r))
-                    .map(([k, v]) => (
-                      <div key={k} className="flex gap-1">
-                        <dt>{k}</dt>
-                        <dd className="font-mono text-ink">= {v}</dd>
-                      </div>
-                    ))}
-                </dl>
+                      })}
+                    </time>
+                    <span aria-hidden className="text-ink-faint">
+                      ▾
+                    </span>
+                  </summary>
+                  <dl className="mt-1 space-y-0.5 px-1">
+                    {[
+                      d.direction !== "unknown" && [
+                        "ทิศทาง",
+                        d.direction === "in" ? "เข้า" : "ออก",
+                      ],
+                      // มีค่าก็ต่อเมื่อเป็น admin — backend ตัดทิ้งให้คนอื่นไปแล้ว
+                      d.confidence != null && ["กล่องป้าย", pct(d.confidence)],
+                      d.confidence != null && [
+                        "เลขทะเบียน",
+                        pct(d.plate_confidence),
+                      ],
+                      d.confidence != null && [
+                        "จังหวัด",
+                        pct(d.province_confidence),
+                      ],
+                    ]
+                      .filter((r): r is [string, string] => Array.isArray(r))
+                      .map(([k, v]) => (
+                        <div key={k} className="flex gap-1">
+                          <dt>{k}</dt>
+                          <dd className="font-mono text-ink">= {v}</dd>
+                        </div>
+                      ))}
+                  </dl>
+                </details>
               </figcaption>
             </figure>
           ))}
