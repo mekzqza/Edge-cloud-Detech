@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Edge Cloud Detech",
+  title: "Edge Cloud Detect",
   icons: "/b_edge_cloud.svg",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="th">
       <head>

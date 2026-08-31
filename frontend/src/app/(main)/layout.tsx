@@ -31,7 +31,7 @@ export default async function MainLayout({
       <aside className="w-56 shrink-0 overflow-hidden border-r border-border bg-surface transition-[width] peer-checked:w-12 max-sm:w-12 max-sm:peer-checked:w-56 motion-reduce:transition-none">
         <div className="flex h-full w-56 flex-col">
           <div className="border-b border-border py-4 pl-12 pr-4 font-medium">
-            <span className="rail-hide">Edge Cloud Detech</span>
+            <span className="rail-hide">Edge Cloud Detect</span>
           </div>
           <Nav />
           <div className="rail-hide border-t border-border p-4 text-sm">

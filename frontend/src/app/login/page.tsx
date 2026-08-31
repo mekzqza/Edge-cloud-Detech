@@ -18,7 +18,7 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <Plate plate="1กก 1234" province="ขอนแก่น" />
           </div>
-          <h1 className="text-lg font-medium">Edge Cloud Detech</h1>
+          <h1 className="text-lg font-medium">Edge Cloud Detect</h1>
           <p className="text-sm text-ink-muted">
             ระบบอ่านป้ายทะเบียนรถเข้า-ออก
           </p>
