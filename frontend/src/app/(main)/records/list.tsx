@@ -35,7 +35,7 @@ export default function RecordsList({
   /** token ของ backend — admin เท่านั้นที่จะได้ค่าดิบ (confidence/plate_raw) กลับมา */
   token: string;
 }) {
-  const noun = direction === "out" ? "รถออก" : "รถเข้า";
+  const noun = direction === "out" ? "การออก" : "การเข้า";
   const [data, setData] = useState<Page | null>(null);
   const [page, setPage] = useState(1);
   const [onlyDenied, setOnlyDenied] = useState(false);
@@ -176,7 +176,7 @@ export default function RecordsList({
             ? "ทุกคันมีสิทธิ์เข้า"
             : date || plateFilter
               ? "ไม่มีรถที่ตรงกับตัวกรอง"
-              : `ยังไม่มี${noun}`}
+              : `ยังไม่มีบันทึก${noun}`}
         </p>
       ) : (
         <div
