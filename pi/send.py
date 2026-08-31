@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import requests
 
-URL = "https://edge-cloud-detech.sukpat.dev/api/detections"
+URL = "https://edge-cloud-detect.sukpat.dev/api/detections"
 CAMERA = "IN"   # กล้องตัวนี้เป็นขาเข้าหรือขาออก: "IN" / "OUT" (ไม่ส่ง = unknown)
 
 
