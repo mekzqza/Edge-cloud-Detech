@@ -34,7 +34,7 @@ function PlateFields({
     "w-full rounded-md border border-border bg-surface px-3 py-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
   return (
     <>
-      <label className="flex flex-1 flex-col gap-1 text-sm">
+      <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
         <span className="text-ink-muted">หมายเลขทะเบียน</span>
         <input
           value={plate}
@@ -45,7 +45,7 @@ function PlateFields({
           className={`${field} font-mono`}
         />
       </label>
-      <label className="flex flex-1 flex-col gap-1 text-sm">
+      <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
         <span className="text-ink-muted">จังหวัด</span>
         <select
           value={province}
@@ -157,7 +157,7 @@ export default function VehiclesList({ token }: { token: string }) {
         onSubmit={add}
         className="mt-6 flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-4"
       >
-        <div className="flex max-w-md flex-1 gap-3">
+        <div className="flex min-w-0 max-w-md flex-1 gap-3">
           <PlateFields
             plate={plate}
             province={province}
@@ -186,7 +186,7 @@ export default function VehiclesList({ token }: { token: string }) {
       ) : (
         <div
           className={`mt-6 grid gap-4 transition-opacity ${busy ? "opacity-50" : ""}`}
-          style={{ gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))" }}
+          style={{ gridTemplateColumns: "repeat(auto-fill,minmax(min(240px,100%),1fr))" }}
         >
           {rows.map((v) =>
             draft?.id === v.id ? (

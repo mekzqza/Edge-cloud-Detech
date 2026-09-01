@@ -5,7 +5,7 @@ import GoogleButton from "../GoogleButton";
 export default function LoginPage() {
   return (
     <main
-      className="flex min-h-screen items-center justify-center bg-cover bg-center p-6"
+      className="flex min-h-dvh items-center justify-center bg-cover bg-center p-6"
       style={{
         // ponytail: overlay เป็นชั้นแรกของ background เดียวกัน — ไม่ต้องมี div ซ้อน
         backgroundImage:

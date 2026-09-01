@@ -113,7 +113,7 @@ export default function NotificationBell({ token }: { token: string }) {
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-10 cursor-default"
           />
-          <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-border bg-surface shadow-lg sm:w-96">
+          <div className="absolute right-0 z-20 mt-2 w-80 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-surface shadow-lg sm:w-96">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h2 className="font-semibold">การแจ้งเตือน</h2>
               <button

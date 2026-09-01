@@ -12,7 +12,7 @@ export default async function MainLayout({
   const session = await auth();
 
   return (
-    <div className="relative flex min-h-screen">
+    <div className="relative flex min-h-dvh">
       {/* ponytail: checkbox + peer = พับ/กางเมนู โดยไม่ต้องมี client component
           พับแล้ว aside แคบลงแต่เนื้อข้างในยังกว้าง 14rem — overflow-hidden ตัดให้เอง */}
       <input
@@ -24,11 +24,11 @@ export default async function MainLayout({
       <label
         htmlFor="sidebar"
         title="พับ/กางเมนู"
-        className="absolute left-3 top-3.5 z-10 cursor-pointer rounded-md px-1.5 py-0.5 text-ink-muted hover:bg-surface-muted hover:text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink"
+        className="absolute left-3 top-3.5 z-30 cursor-pointer rounded-md px-1.5 py-0.5 text-ink-muted hover:bg-surface-muted hover:text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink"
       >
         ☰
       </label>
-      <aside className="w-56 shrink-0 overflow-hidden border-r border-border bg-surface transition-[width] peer-checked:w-12 max-sm:w-12 max-sm:peer-checked:w-56 motion-reduce:transition-none">
+      <aside className="w-56 shrink-0 overflow-hidden border-r border-border bg-surface transition-[width] peer-checked:w-12 max-sm:w-12 max-sm:peer-checked:fixed max-sm:peer-checked:inset-y-0 max-sm:peer-checked:left-0 max-sm:peer-checked:z-20 max-sm:peer-checked:w-56 max-sm:peer-checked:shadow-lg motion-reduce:transition-none">
         <div className="flex h-full w-56 flex-col">
           <div className="border-b border-border py-4 pl-12 pr-4 font-medium">
             <span className="rail-hide">Edge Cloud Detect</span>
@@ -61,13 +61,13 @@ export default async function MainLayout({
           </div>
         </div>
       </aside>
-      <div className="flex flex-1 flex-col">
-        <header className="flex min-h-11 items-center justify-end gap-2 border-b border-border bg-surface px-6 py-2">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex min-h-11 items-center justify-end gap-2 border-b border-border bg-surface px-4 py-2 sm:px-6">
           {/* กระดิ่งเรียก /api/notifications ที่ต้องมี token — guest ไม่ต้องมี */}
           {session && <NotificationBell token={session.user.backendToken} />}
           <ThemeToggle />
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

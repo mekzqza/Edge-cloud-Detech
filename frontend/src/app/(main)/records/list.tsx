@@ -182,7 +182,7 @@ export default function RecordsList({
         <div
           className={`mt-6 grid gap-5 transition-opacity ${busy ? "opacity-50" : ""}`}
           style={{
-            gridTemplateColumns: `repeat(auto-fill,minmax(${CARD_MIN_WIDTH}px,1fr))`,
+            gridTemplateColumns: `repeat(auto-fill,minmax(min(${CARD_MIN_WIDTH}px,100%),1fr))`,
           }}
         >
           {rows.map((d) => (

@@ -188,14 +188,14 @@ export default function OverviewPage() {
               <div
                 key={b.label}
                 title={`${b.label} — เข้า ${b.in} / ออก ${b.out} คัน`}
-                className="flex h-full flex-1 items-end justify-center gap-0.5 rounded transition-colors hover:bg-surface-muted"
+                className="flex h-full min-w-0 flex-1 items-end justify-center gap-0.5 rounded transition-colors hover:bg-surface-muted"
               >
                 <div
-                  className="w-1.5 rounded-t bg-success md:w-2"
+                  className="w-full max-w-1.5 rounded-t bg-success md:max-w-2"
                   style={{ height: `${(b.in / max) * 100}%` }}
                 />
                 <div
-                  className="w-1.5 rounded-t bg-warn md:w-2"
+                  className="w-full max-w-1.5 rounded-t bg-warn md:max-w-2"
                   style={{ height: `${(b.out / max) * 100}%` }}
                 />
               </div>
@@ -203,7 +203,7 @@ export default function OverviewPage() {
           </div>
           <div className="mt-1 flex border-t border-border pt-1 text-[10px] text-ink-faint">
             {buckets.map((b, i) => (
-              <div key={b.label} className="flex-1 truncate text-center">
+              <div key={b.label} className="min-w-0 flex-1 truncate text-center">
                 {i % labelStep === 0 ? b.label : ""}
               </div>
             ))}
