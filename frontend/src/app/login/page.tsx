@@ -5,7 +5,7 @@ import GoogleButton from "../GoogleButton";
 export default function LoginPage() {
   return (
     <main
-      className="flex min-h-screen items-center justify-center bg-cover bg-center p-6"
+      className="flex min-h-dvh items-center justify-center bg-cover bg-center p-6"
       style={{
         // ponytail: overlay เป็นชั้นแรกของ background เดียวกัน — ไม่ต้องมี div ซ้อน
         backgroundImage:
@@ -18,7 +18,7 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <Plate plate="1กก 1234" province="ขอนแก่น" />
           </div>
-          <h1 className="text-lg font-medium">Edge Cloud Detech</h1>
+          <h1 className="text-lg font-medium">Edge Cloud Detect</h1>
           <p className="text-sm text-ink-muted">
             ระบบอ่านป้ายทะเบียนรถเข้า-ออก
           </p>

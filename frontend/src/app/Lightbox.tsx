@@ -26,7 +26,7 @@ export default function Lightbox({
       ref={ref}
       onClose={onClose}
       onClick={() => ref.current?.close()} // คลิกที่ไหนก็ปิด
-      className="m-0 h-full max-h-full w-full max-w-full bg-transparent backdrop:bg-black/80"
+      className="m-0 h-dvh max-h-dvh w-full max-w-full bg-transparent backdrop:bg-black/80"
     >
       <div className="flex h-full items-center justify-center p-4">
         <img

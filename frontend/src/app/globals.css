@@ -1,27 +1,30 @@
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
+/* ค่าตั้งต้น = โหมดสว่าง; โหมดมืดอยู่ 2 บล็อกล่าง
+   ponytail: เขียนซ้ำ 2 ชุดแทน light-dark() — light-dark() ต้อง Safari 17.5+/Firefox 120+
+   เครื่องที่เก่ากว่านั้นสีจะหายทั้งหน้า (var ใช้ไม่ได้ = พื้นหลังใส) */
 @theme {
     /* พื้นผิว */
-    --color-surface: light-dark(#ffffff, #1c1b17);
-    --color-surface-muted: light-dark(#f4f3ee, #26241e);
-    --color-page: light-dark(#ecebe3, #141310);
-    --color-border: light-dark(#e4e2d9, #34322a);
+    --color-surface: #ffffff;
+    --color-surface-muted: #f4f3ee;
+    --color-page: #ecebe3;
+    --color-border: #e4e2d9;
 
     /* ตัวอักษร */
-    --color-ink: light-dark(#1f1e1a, #eceada);
-    --color-ink-muted: light-dark(#6b6a62, #a5a297);
-    --color-ink-faint: light-dark(#94938b, #7a7870);
+    --color-ink: #1f1e1a;
+    --color-ink-muted: #6b6a62;
+    --color-ink-faint: #94938b;
 
     /* สถานะ: สีเข้ม = ตัวอักษร/ไอคอน, -soft = พื้นหลังอ่อน */
-    --color-info: light-dark(#185fa5, #7db6ee);
-    --color-info-soft: light-dark(#e6f1fb, #16293c);
-    --color-success: light-dark(#0f6e56, #5fd3b0);
-    --color-success-soft: light-dark(#e1f5ee, #102e26);
-    --color-warn: light-dark(#854f0b, #e0ae63);
-    --color-warn-soft: light-dark(#faeeda, #33230e);
-    --color-danger: light-dark(#a32d2d, #f08a8a);
-    --color-danger-soft: light-dark(#fcebeb, #3a1a1a);
+    --color-info: #185fa5;
+    --color-info-soft: #e6f1fb;
+    --color-success: #0f6e56;
+    --color-success-soft: #e1f5ee;
+    --color-warn: #854f0b;
+    --color-warn-soft: #faeeda;
+    --color-danger: #a32d2d;
+    --color-danger-soft: #fcebeb;
 
     /* มุมโค้ง + ฟอนต์ */
     --radius-md: 8px;
@@ -30,7 +33,47 @@
     --font-mono: "JetBrains Mono", monospace;
 }
 
-/* ค่าเริ่มต้น = ตามระบบ; ปุ่มสลับโหมดเขียน data-theme ทับ */
+/* ตามระบบ — ยกเว้นผู้ใช้กดเลือกสว่างไว้เอง */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --color-surface: #1c1b17;
+        --color-surface-muted: #26241e;
+        --color-page: #141310;
+        --color-border: #34322a;
+        --color-ink: #eceada;
+        --color-ink-muted: #a5a297;
+        --color-ink-faint: #7a7870;
+        --color-info: #7db6ee;
+        --color-info-soft: #16293c;
+        --color-success: #5fd3b0;
+        --color-success-soft: #102e26;
+        --color-warn: #e0ae63;
+        --color-warn-soft: #33230e;
+        --color-danger: #f08a8a;
+        --color-danger-soft: #3a1a1a;
+    }
+}
+
+/* ผู้ใช้กดเลือกโหมดมืดเอง — ชนะทั้ง :root และ media ข้างบน */
+:root[data-theme="dark"] {
+    --color-surface: #1c1b17;
+    --color-surface-muted: #26241e;
+    --color-page: #141310;
+    --color-border: #34322a;
+    --color-ink: #eceada;
+    --color-ink-muted: #a5a297;
+    --color-ink-faint: #7a7870;
+    --color-info: #7db6ee;
+    --color-info-soft: #16293c;
+    --color-success: #5fd3b0;
+    --color-success-soft: #102e26;
+    --color-warn: #e0ae63;
+    --color-warn-soft: #33230e;
+    --color-danger: #f08a8a;
+    --color-danger-soft: #3a1a1a;
+}
+
+/* คุมสีของ scrollbar/ช่องกรอกที่เบราว์เซอร์วาดเอง */
 :root {
     color-scheme: light dark;
 }
@@ -47,13 +90,27 @@ body {
     font-family: var(--font-sans);
 }
 
+/* Safari ยังวาดสามเหลี่ยมของ <details> ด้วย pseudo ตัวเก่า — ::marker อย่างเดียวไม่พอ */
+summary::-webkit-details-marker {
+    display: none;
+}
+
+/* iOS ซูมหน้าเองเมื่อโฟกัสช่องที่ตัวอักษรเล็กกว่า 16px — หน้าเลยเลยขอบจอ */
+@media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+        font-size: 16px;
+    }
+}
+
 /* พับ sidebar (#sidebar checked) = เหลือแค่ไอคอน — ที่เหลือซ่อน */
 #sidebar:checked ~ aside .rail-hide {
     display: none;
 }
 
 /* จอแคบสลับด้าน: ปกติเป็น rail, กด ☰ ถึงกาง (specificity เท่ากัน — ตัวหลังชนะ) */
-@media (width < 40rem) {
+@media (max-width: 39.999rem) {
     #sidebar:not(:checked) ~ aside .rail-hide {
         display: none;
     }
@@ -61,4 +118,3 @@ body {
         display: revert;
     }
 }
-
