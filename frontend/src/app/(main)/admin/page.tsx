@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import Accounts from "./accounts";
 import ImportCsv from "./import";
 import VehicleRequests from "./requests";
 
@@ -34,6 +35,7 @@ export default async function AdminPage() {
       {isAdmin && (
         <>
           <ImportCsv token={session?.user.backendToken ?? ""} />
+          <Accounts token={session?.user.backendToken ?? ""} />
           <VehicleRequests token={session?.user.backendToken ?? ""} />
         </>
       )}

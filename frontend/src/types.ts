@@ -49,3 +49,12 @@ export type Notification = {
   province: string | null;
   direction: Detection["direction"];
 };
+
+// แถวจาก /api/admin/owners — username = null คือเจ้าของที่ยังไม่มี account
+export type AdminOwner = {
+  id: number;
+  full_name: string;
+  contact: string | null;
+  username: string | null;
+  vehicle_count: number;
+};

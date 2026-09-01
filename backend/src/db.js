@@ -20,7 +20,7 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS users (
       id            SERIAL PRIMARY KEY,
       username      TEXT UNIQUE NOT NULL,
-      password_hash TEXT,                            -- ponytail: เลิกใช้แล้ว (Google อย่างเดียว) เก็บไว้กัน rollback
+      password_hash TEXT,                            -- NULL = ล็อกอินด้วย Google อย่างเดียว
       role          TEXT NOT NULL DEFAULT 'user'   -- 'user' | 'admin'
     )
   `);
@@ -33,6 +33,11 @@ async function initDb() {
 
   await pool.query(`
       ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
+
+  // admin ตั้งรหัสให้ตอนสร้าง account → บังคับเปลี่ยนก่อนใช้งาน
+  // default false — คนที่ล็อกอิน Google ไม่มีรหัสให้เปลี่ยนอยู่แล้ว
+  await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false`);
 
   // เจ้าของ = entity ของตัวเอง; user_id เป็นของแถม (NULL = เจ้าของที่ไม่มี account)
   await pool.query(`

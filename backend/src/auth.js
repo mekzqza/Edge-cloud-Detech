@@ -15,6 +15,22 @@ function deriveUsername(emailLower) {
   return base.length >= 3 ? base : "user";
 }
 
+function hashPassword(plain) {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(plain, salt, 64);
+  return `${salt.toString("hex")}:${hash.toString("hex")}`;
+}
+
+function verifyPassword(plain, stored) {
+  const [saltHex, hashHex] = String(stored).split(":");
+  if (!saltHex || !hashHex) return false;
+  const hash = crypto.scryptSync(plain, Buffer.from(saltHex, "hex"), 64);
+  const expected = Buffer.from(hashHex, "hex");
+  return (
+    hash.length === expected.length && crypto.timingSafeEqual(hash, expected)
+  );
+}
+
 function b64url(buf) {
   return buf
     .toString("base64")
@@ -108,6 +124,8 @@ async function requireAdmin(req, res, next) {
 
 module.exports = {
   deriveUsername,
+  hashPassword,
+  verifyPassword,
   isAdmin,
   signToken,
   verifyToken,
