@@ -24,7 +24,7 @@ export type Vehicle = {
   id: number;
   plate: string;
   province: string;
-  owner_id: number | null; // -> owners.id (NULL = ยังไม่รู้เจ้าของ)
+  owner_id: number | null; // -> users.id (NULL = ยังไม่รู้เจ้าของ)
   status: Status;
   created_at: string;
 };
@@ -50,7 +50,7 @@ export type Notification = {
   direction: Detection["direction"];
 };
 
-// แถวจาก /api/admin/owners — username = null คือเจ้าของที่ยังไม่มี account
+// แถวจาก /api/admin/owners — id คือ users.id, username = null คือเจ้าของที่ยังล็อกอินไม่ได้
 export type AdminOwner = {
   id: number;
   full_name: string;

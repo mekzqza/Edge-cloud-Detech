@@ -18,20 +18,7 @@ function field(v) {
   return v.trim();
 }
 
-// เจ้าของของ account นี้ — สร้างตอนใช้ครั้งแรก ชื่อเริ่มต้น = username
-// ponytail: ไม่มีหน้าแก้โปรไฟล์เจ้าของ ค่อยเพิ่มตอนต้องแก้ชื่อ/เบอร์เอง
-async function myOwnerId(user) {
-  const { rows } = await pool.query(
-    `INSERT INTO owners (full_name, user_id) VALUES ($1, $2)
-     ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
-     RETURNING id`,
-    [user.username, user.id],
-  );
-  return rows[0].id;
-}
-
-// รถของ account นี้ = รถของ owner ที่ผูกกับ account (ยังไม่มี owner = ยังไม่มีรถ)
-const myOwner = (n) => `(SELECT id FROM owners WHERE user_id = $${n})`;
+// เจ้าของ = แถวใน users แถวเดียวกับ account — owner_id คือ user.id ตรง ๆ
 
 router.post(
   "/vehicles",
@@ -49,7 +36,7 @@ router.post(
     const { rows } = await pool.query(
       `INSERT INTO vehicles (plate, province, owner_id) VALUES ($1, $2, $3)
        ON CONFLICT DO NOTHING RETURNING *`,
-      [plate, province, await myOwnerId(req.user)],
+      [plate, province, req.user.id],
     );
     if (!rows[0]) return res.status(409).json({ error: "รถคันนี้มีอยู่แล้ว" });
     return res.status(201).json(rows[0]);
@@ -61,7 +48,7 @@ router.get(
   requireUser,
   h(async (req, res) => {
     const { rows } = await pool.query(
-      `SELECT * FROM vehicles WHERE owner_id = ${myOwner(1)}
+      `SELECT * FROM vehicles WHERE owner_id = $1
         ORDER BY created_at DESC`,
       [req.user.id],
     );
@@ -81,7 +68,7 @@ router.delete(
     // owner_id อยู่ใน WHERE = เช็คความเป็นเจ้าของกับลบในคิวรี่เดียว
     const { rows } = await pool.query(
       `DELETE FROM vehicles
-        WHERE id = $1 AND owner_id = ${myOwner(2)} RETURNING id`,
+        WHERE id = $1 AND owner_id = $2 RETURNING id`,
       [vehicleId, req.user.id],
     );
     if (!rows[0]) return res.status(404).json({ error: "ไม่พบรถคันนี้" });
@@ -110,7 +97,7 @@ router.patch(
           SET plate = COALESCE($1, plate),
               province = COALESCE($2, province),
               status = 'pending', approved_by = NULL, approved_at = NULL
-        WHERE id = $3 AND owner_id = ${myOwner(4)}
+        WHERE id = $3 AND owner_id = $4
         RETURNING *`,
       [plate ?? null, province ?? null, vehicleId, req.user.id],
     );
@@ -155,7 +142,7 @@ router.get(
       `SELECT v.*, o.full_name AS owner_name, o.contact AS owner_contact,
               a.username AS approved_by_name
          FROM vehicles v
-         LEFT JOIN owners o ON o.id = v.owner_id
+         LEFT JOIN users o ON o.id = v.owner_id
          LEFT JOIN users a ON a.id = v.approved_by
          ${cond.length ? `WHERE ${cond.join(" AND ")}` : ""}
         ORDER BY v.created_at DESC
@@ -296,23 +283,15 @@ router.post(
           WHERE t.plate = '' OR t.province = ''`,
       );
 
-      // เจ้าของที่ระบุมาแต่ชื่อ — สร้างใหม่ถ้ายังไม่มี
+      // เจ้าของที่ระบุมาแต่ชื่อ — สร้างแถว users ที่ล็อกอินไม่ได้ (username NULL) ถ้ายังไม่มี
       // ponytail: dedupe ด้วยชื่อตรงตัว ไม่มี UNIQUE เพราะคนชื่อซ้ำกันได้จริง
       await client.query(
-        `INSERT INTO owners (full_name, contact)
+        `INSERT INTO users (full_name, contact)
          SELECT t.owner_name, min(NULLIF(t.contact, ''))
            FROM t
           WHERE t.owner_name <> ''
-            AND NOT EXISTS (SELECT 1 FROM owners o WHERE o.full_name = t.owner_name)
+            AND NOT EXISTS (SELECT 1 FROM users u WHERE u.full_name = t.owner_name)
           GROUP BY t.owner_name`,
-      );
-
-      // account ที่ยังไม่เคยมี owner — สร้างให้ตอน import
-      await client.query(
-        `INSERT INTO owners (full_name, user_id)
-         SELECT DISTINCT u.username, u.id
-           FROM t JOIN users u ON u.username = t.username
-         ON CONFLICT (user_id) DO NOTHING`,
       );
 
       const {
@@ -323,9 +302,8 @@ router.post(
            SELECT DISTINCT t.plate, t.province,
                   COALESCE(acc.id, named.id), 'approved', $1::int, now()
              FROM t
-             LEFT JOIN users u ON u.username = t.username
-             LEFT JOIN owners acc ON acc.user_id = u.id
-             LEFT JOIN owners named
+             LEFT JOIN users acc ON acc.username = t.username AND t.username <> ''
+             LEFT JOIN users named
                     ON named.full_name = t.owner_name AND t.owner_name <> ''
             WHERE t.plate <> '' AND t.province <> ''
            ON CONFLICT (plate, province) DO NOTHING

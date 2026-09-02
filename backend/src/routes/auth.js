@@ -117,32 +117,33 @@ router.post(
 );
 
 // รายชื่อเจ้าของ + สถานะ account — หน้า admin ใช้เลือกว่าจะแจก account ให้ใคร
+// เจ้าของกับ account เป็นแถวเดียวกันแล้ว: username NULL = ยังล็อกอินไม่ได้ ขึ้นก่อน
 router.get(
   "/admin/owners",
   requireAdmin,
   h(async (_req, res) => {
     const { rows } = await pool.query(
-      `SELECT o.id, o.full_name, o.contact, u.username,
-              count(v.id)::int AS vehicle_count
-         FROM owners o
-         LEFT JOIN users u ON u.id = o.user_id
-         LEFT JOIN vehicles v ON v.owner_id = o.id
-        GROUP BY o.id, u.username
-        ORDER BY u.username IS NOT NULL, o.full_name
+      `SELECT u.id, COALESCE(u.full_name, u.username) AS full_name, u.contact,
+              u.username, count(v.id)::int AS vehicle_count
+         FROM users u
+         LEFT JOIN vehicles v ON v.owner_id = u.id
+        GROUP BY u.id
+        ORDER BY u.username IS NOT NULL, COALESCE(u.full_name, u.username)
         LIMIT 500`,
     );
     res.json(rows);
   }),
 );
 
-// admin สร้าง account ให้เจ้าของที่มีชื่ออยู่แล้ว แล้วบอกรหัสไปให้เขาเปลี่ยนเอง
+// admin แจก account ให้เจ้าของที่มีชื่ออยู่แล้ว แล้วบอกรหัสไปให้เขาเปลี่ยนเอง
+// userId = แถวเจ้าของที่ import มา (เติม username/รหัสให้แถวเดิม), ไม่ส่ง = สร้างแถวใหม่
 router.post(
   "/admin/users",
   requireAdmin,
   h(async (req, res) => {
     const username = str(req.body.username)?.trim();
     const password = str(req.body.password);
-    const ownerId = req.body.ownerId == null ? null : Number(req.body.ownerId);
+    const userId = req.body.userId == null ? null : Number(req.body.userId);
     if (!username || !password) {
       return res.status(400).json({ error: "ต้องมี username, password" });
     }
@@ -156,44 +157,37 @@ router.post(
         .status(400)
         .json({ error: `รหัสต้องยาวอย่างน้อย ${MIN_PASSWORD_LEN} ตัว` });
     }
-    if (ownerId !== null && !Number.isInteger(ownerId)) {
-      return res.status(400).json({ error: "ownerId ไม่ถูกต้อง" });
+    if (userId !== null && !Number.isInteger(userId)) {
+      return res.status(400).json({ error: "userId ไม่ถูกต้อง" });
     }
 
-    const client = await pool.connect();
+    const hash = hashPassword(password);
     try {
-      await client.query("BEGIN");
-      const {
-        rows: [user],
-      } = await client.query(
-        `INSERT INTO users (username, password_hash, role, must_change_password)
-         VALUES ($1, $2, 'user', true)
-         RETURNING id, username`,
-        [username, hashPassword(password)],
-      );
-
-      // ผูกกับเจ้าของที่ import มา — ที่ยังไม่มี account เท่านั้น กันแย่งของคนอื่น
-      if (ownerId !== null) {
-        const { rowCount } = await client.query(
-          "UPDATE owners SET user_id = $1 WHERE id = $2 AND user_id IS NULL",
-          [user.id, ownerId],
-        );
-        if (!rowCount) {
-          await client.query("ROLLBACK");
-          return res
-            .status(409)
-            .json({ error: "เจ้าของรายนี้มี account อยู่แล้ว" });
-        }
+      // username IS NULL ใน WHERE = กันแย่ง account ของคนที่มีอยู่แล้ว ในคิวรี่เดียว
+      const { rows } = userId
+        ? await pool.query(
+            `UPDATE users
+                SET username = $1, password_hash = $2, must_change_password = true
+              WHERE id = $3 AND username IS NULL
+              RETURNING id, username`,
+            [username, hash, userId],
+          )
+        : await pool.query(
+            `INSERT INTO users (username, password_hash, role, must_change_password)
+             VALUES ($1, $2, 'user', true)
+             RETURNING id, username`,
+            [username, hash],
+          );
+      if (!rows[0]) {
+        return res
+          .status(409)
+          .json({ error: "เจ้าของรายนี้มี account อยู่แล้ว" });
       }
-      await client.query("COMMIT");
-      res.status(201).json(user);
+      res.status(201).json(rows[0]);
     } catch (e) {
-      await client.query("ROLLBACK");
       if (e.code === "23505")
         return res.status(409).json({ error: "username นี้ถูกใช้แล้ว" });
       throw e;
-    } finally {
-      client.release();
     }
   }),
 );

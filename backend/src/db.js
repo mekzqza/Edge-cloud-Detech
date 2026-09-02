@@ -19,8 +19,10 @@ async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id            SERIAL PRIMARY KEY,
-      username      TEXT UNIQUE NOT NULL,
+      username      TEXT UNIQUE,                     -- NULL = เจ้าของที่ import ชื่อมา ยังไม่มี account
       password_hash TEXT,                            -- NULL = ล็อกอินด้วย Google อย่างเดียว
+      full_name     TEXT,                            -- ชื่อเจ้าของรถ (จาก CSV)
+      contact       TEXT,
       role          TEXT NOT NULL DEFAULT 'user'   -- 'user' | 'admin'
     )
   `);
@@ -39,22 +41,19 @@ async function initDb() {
   await pool.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false`);
 
-  // เจ้าของ = entity ของตัวเอง; user_id เป็นของแถม (NULL = เจ้าของที่ไม่มี account)
+  // เจ้าของยุบเข้า users แถวเดียวกันแล้ว — แถวที่ username NULL คือเจ้าของที่ล็อกอินไม่ได้
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS owners (
-      id         serial PRIMARY KEY,
-      full_name  text NOT NULL,
-      contact    text,
-      user_id    integer UNIQUE REFERENCES users(id) ON DELETE SET NULL,
-      created_at timestamptz NOT NULL DEFAULT now()
-    )`);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT,
+                        ADD COLUMN IF NOT EXISTS contact   TEXT`);
+  await pool.query(`
+      ALTER TABLE users ALTER COLUMN username DROP NOT NULL`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS vehicles (
       id          serial PRIMARY KEY,
       plate       text NOT NULL,
       province    text,
-      owner_id    integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      owner_id    integer REFERENCES users(id) ON DELETE SET NULL,
       status      text NOT NULL DEFAULT 'pending',
       approved_by integer REFERENCES users(id) ON DELETE SET NULL,
       approved_at timestamptz,
@@ -62,10 +61,6 @@ async function initDb() {
       CONSTRAINT vehicles_status_chk CHECK (status IN ('pending','approved','revoked')),
       CONSTRAINT vehicles_plate_province_key UNIQUE (plate, province)
     )`);
-
-  // import CSV รับรถที่ยังไม่รู้เจ้าของได้ — owner_id NULL = ยังไม่ผูกผู้ใช้
-  await pool.query(`
-    ALTER TABLE vehicles ALTER COLUMN owner_id DROP NOT NULL`);
 
   // เลขในป้ายเป็น blocking key ของ fuzzy match — generated ไว้เลยไม่มีทางหลุด sync กับ plate
   await pool.query(`
@@ -101,7 +96,7 @@ async function initDb() {
   await pool.query(`
     ALTER TABLE detections ALTER COLUMN plate_raw SET NOT NULL`);
 
-  // vehicles.owner_id เคยชี้ users — ย้ายไปชี้ owners ครั้งเดียว
+  // ตาราง owners ถูกยุบเข้า users — ย้ายครั้งเดียวถ้า FK ยังชี้ owners อยู่
   // เช็คจากปลายทางของ FK เอง ไม่ต้องมีตาราง migration
   const {
     rows: [fk],
@@ -109,22 +104,36 @@ async function initDb() {
     `SELECT confrelid::regclass::text AS target FROM pg_constraint
       WHERE conrelid = 'vehicles'::regclass AND conname = 'vehicles_owner_id_fkey'`,
   );
-  if (fk && fk.target === "users") {
+  if (fk && fk.target === "owners") {
     // ไม่มี params = simple query protocol = ทั้งก้อนอยู่ใน transaction เดียวให้เอง
     await pool.query(`
-      INSERT INTO owners (full_name, user_id)
-      SELECT u.username, u.id FROM users u
-       WHERE EXISTS (SELECT 1 FROM vehicles v WHERE v.owner_id = u.id)
-      ON CONFLICT (user_id) DO NOTHING;
+      ALTER TABLE owners ADD COLUMN IF NOT EXISTS new_user_id integer;
 
-      UPDATE vehicles v SET owner_id = o.id FROM owners o WHERE o.user_id = v.owner_id;
+      UPDATE users u SET full_name = COALESCE(u.full_name, o.full_name),
+                         contact   = COALESCE(u.contact,   o.contact)
+        FROM owners o WHERE o.user_id = u.id;
+      UPDATE owners SET new_user_id = user_id WHERE user_id IS NOT NULL;
+
+      -- ponytail: วน loop เพราะชื่อซ้ำกันได้ join กลับด้วย full_name ไม่ปลอดภัย
+      -- รันครั้งเดียวตอน migrate แถวหลักร้อย
+      DO $$ DECLARE o RECORD; uid int; BEGIN
+        FOR o IN SELECT id, full_name, contact FROM owners WHERE user_id IS NULL LOOP
+          INSERT INTO users (full_name, contact) VALUES (o.full_name, o.contact)
+            RETURNING id INTO uid;
+          UPDATE owners SET new_user_id = uid WHERE id = o.id;
+        END LOOP;
+      END $$;
+
+      UPDATE vehicles v SET owner_id = o.new_user_id FROM owners o WHERE v.owner_id = o.id;
 
       ALTER TABLE vehicles
         DROP CONSTRAINT vehicles_owner_id_fkey,
         ADD CONSTRAINT vehicles_owner_id_fkey FOREIGN KEY (owner_id)
-            REFERENCES owners(id) ON DELETE SET NULL;
+            REFERENCES users(id) ON DELETE SET NULL;
+
+      DROP TABLE owners;
     `);
-    console.log("migrated vehicles.owner_id -> owners");
+    console.log("migrated owners -> users");
   }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS notifications (

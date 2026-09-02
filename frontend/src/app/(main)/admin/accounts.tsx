@@ -10,7 +10,7 @@ const randomPassword = () =>
 const INPUT =
   "rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none focus-visible:border-info";
 
-// แจก account ให้เจ้าของที่ import ชื่อมาแล้ว — สร้าง user + ผูกกับ owner ในคำขอเดียว
+// แจก account ให้เจ้าของที่ import ชื่อมาแล้ว — เติม username/รหัสลงแถว users แถวเดิม
 export default function Accounts({ token }: { token: string }) {
   const [rows, setRows] = useState<AdminOwner[] | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
@@ -44,7 +44,7 @@ export default function Accounts({ token }: { token: string }) {
     setPassword(randomPassword());
   }
 
-  async function create(ownerId: number) {
+  async function create(userId: number) {
     setError("");
     const res = await fetch("/api/admin/users", {
       method: "POST",
@@ -52,7 +52,7 @@ export default function Accounts({ token }: { token: string }) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ username, password, ownerId }),
+      body: JSON.stringify({ username, password, userId }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
