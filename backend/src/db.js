@@ -124,12 +124,11 @@ async function initDb() {
         END LOOP;
       END $$;
 
+      -- ต้องปลด FK ก่อนย้าย id — ไม่งั้น UPDATE โดนเช็คกับ owners ทั้งที่ค่าใหม่เป็น users.id
+      ALTER TABLE vehicles DROP CONSTRAINT vehicles_owner_id_fkey;
       UPDATE vehicles v SET owner_id = o.new_user_id FROM owners o WHERE v.owner_id = o.id;
-
-      ALTER TABLE vehicles
-        DROP CONSTRAINT vehicles_owner_id_fkey,
-        ADD CONSTRAINT vehicles_owner_id_fkey FOREIGN KEY (owner_id)
-            REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE vehicles ADD CONSTRAINT vehicles_owner_id_fkey
+        FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL;
 
       DROP TABLE owners;
     `);
