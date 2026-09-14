@@ -15,6 +15,10 @@ export type Detection = {
   confidence?: number | null; // YOLO det conf ของกล่องป้าย
   plate_confidence?: number | null; // OCR conf ของเลขทะเบียน
   province_confidence?: number | null; // fuzzy match conf ของจังหวัด
+  // 3 ฟิลด์นี้มีเฉพาะ /api/detections/plate/:plate และเฉพาะ admin — vehicle_status null = ไม่มีรถคันนี้ในระบบ
+  owner_name?: string | null; // null = รถ import มาโดยยังไม่รู้เจ้าของ
+  owner_contact?: string | null;
+  vehicle_status?: Status | null;
   verified: boolean | null;
   access_granted: boolean; // ตรงกับ vehicles ที่ approved ไหม — คิดตอนบันทึก ไม่คำนวณใหม่
   direction: "in" | "out" | "unknown";

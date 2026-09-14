@@ -15,13 +15,16 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 // pk กล้องที่ Pi ส่งมา → ทิศทาง; ค่าอื่นหรือไม่ส่งมา = unknown
 const DIRECTION = { IN: "in", OUT: "out" };
 
-// ค่าดิบของ pipeline (conf ทั้งสามตัว + ป้ายก่อนจับคู่) — admin เท่านั้นที่เห็น
+// ค่าดิบของ pipeline (conf ทั้งสามตัว + ป้ายก่อนจับคู่) + ข้อมูลเจ้าของรถ — admin เท่านั้นที่เห็น
 // ตัดที่ backend ไม่ใช่ซ่อนด้วย UI ค่าจะได้ไม่ติดไปกับ response ให้ใครเปิด devtools อ่าน
 const INTERNAL = [
   "confidence",
   "plate_confidence",
   "province_confidence",
   "plate_raw",
+  "owner_name",
+  "owner_contact",
+  "vehicle_status",
 ];
 
 const redact = (rows, admin) =>
@@ -165,7 +168,16 @@ router.get("/detections/plate/:plate", async (req, res) => {
   const { rows } = await pool.query(
     // ค้นทั้งสองช่อง: คนที่จำค่าที่ระบบแก้ให้ และคนที่จำค่าที่ OCR อ่านมา ต้องเจอเหมือนกัน
     // (ค้นด้วย plate_raw ได้ทุกคน แค่ไม่เห็นค่ามัน — ไม่งั้นผลค้นของ user จะหายไปเฉย ๆ)
-    "SELECT * FROM detections WHERE plate ILIKE $1 OR plate_raw ILIKE $1 ORDER BY created_at DESC LIMIT 1000",
+    // เจ้าของ: รถที่จับคู่ได้ตอนบันทึก ไม่ได้ก็ลองป้าย+จังหวัดตรงเป๊ะ (UNIQUE = ได้คันเดียว)
+    // — เจอรถที่ยัง pending/ถูกปฏิเสธ หรือเพิ่งลงทะเบียนหลังรถผ่านไปแล้วด้วย
+    `SELECT d.*, COALESCE(u.full_name, u.username) AS owner_name,
+            u.contact AS owner_contact, v.status AS vehicle_status
+       FROM detections d
+       LEFT JOIN vehicles v ON v.id = d.matched_vehicle_id
+            OR (d.matched_vehicle_id IS NULL AND v.plate = d.plate AND v.province = d.province)
+       LEFT JOIN users u ON u.id = v.owner_id
+      WHERE d.plate ILIKE $1 OR d.plate_raw ILIKE $1
+      ORDER BY d.created_at DESC LIMIT 1000`,
     [`%${q}%`],
   );
   res.json(redact(rows, await isAdmin(req)));
