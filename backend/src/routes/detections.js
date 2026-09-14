@@ -165,6 +165,8 @@ router.get("/detections", async (req, res) => {
 router.get("/detections/plate/:plate", async (req, res) => {
   const q = String(req.params.plate).trim();
   if (!q) return res.status(400).json({ error: "ระบุเลขทะเบียน" });
+  // admin ค้นด้วยชื่อเจ้าของได้ด้วย — user ทั่วไปห้าม ไม่งั้นพิมพ์ชื่อคนก็รู้ว่าเขาขับรถทะเบียนอะไร
+  const admin = await isAdmin(req);
   const { rows } = await pool.query(
     // ค้นทั้งสองช่อง: คนที่จำค่าที่ระบบแก้ให้ และคนที่จำค่าที่ OCR อ่านมา ต้องเจอเหมือนกัน
     // (ค้นด้วย plate_raw ได้ทุกคน แค่ไม่เห็นค่ามัน — ไม่งั้นผลค้นของ user จะหายไปเฉย ๆ)
@@ -177,10 +179,11 @@ router.get("/detections/plate/:plate", async (req, res) => {
             OR (d.matched_vehicle_id IS NULL AND v.plate = d.plate AND v.province = d.province)
        LEFT JOIN users u ON u.id = v.owner_id
       WHERE d.plate ILIKE $1 OR d.plate_raw ILIKE $1
+         OR ($2 AND (u.full_name ILIKE $1 OR u.username ILIKE $1))
       ORDER BY d.created_at DESC LIMIT 1000`,
-    [`%${q}%`],
+    [`%${q}%`, admin],
   );
-  res.json(redact(rows, await isAdmin(req)));
+  res.json(redact(rows, admin));
 });
 
 router.get("/detections/time/:hours", async (req, res) => {

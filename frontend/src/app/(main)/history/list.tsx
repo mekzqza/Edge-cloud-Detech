@@ -122,7 +122,8 @@ export default function HistoryList({
       <header className="border-b border-border pb-4">
         <h1 className="text-lg font-medium">ค้นประวัติรถ</h1>
         <p className="mt-0.5 text-xs text-ink-faint">
-          พิมพ์เลขทะเบียน (บางส่วนก็ได้) เพื่อดูเวลาเข้า-ออกของรถคันนั้น
+          พิมพ์เลขทะเบียน{isAdmin && "หรือชื่อเจ้าของ"} (บางส่วนก็ได้)
+          เพื่อดูเวลาเข้า-ออกของรถคันนั้น
         </p>
 
         <form onSubmit={search} className="mt-3 flex gap-2">
@@ -130,7 +131,7 @@ export default function HistoryList({
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="เช่น กพ1687"
+            placeholder={isAdmin ? "เช่น กพ1687 หรือ สมชาย" : "เช่น กพ1687"}
             className="w-full max-w-xs rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           />
           <button
@@ -147,7 +148,7 @@ export default function HistoryList({
         <p className="mt-8 text-sm text-ink-faint">ยังไม่ได้ค้นหา</p>
       ) : visits.length === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">
-          ไม่พบทะเบียนที่ตรงกับ “{q}”
+          ไม่พบทะเบียน{isAdmin && "หรือเจ้าของ"}ที่ตรงกับ “{q}”
         </p>
       ) : (
         <>
