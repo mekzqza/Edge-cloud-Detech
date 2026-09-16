@@ -21,3 +21,7 @@ Thumbs.db
 
 deploy_key
 deploy_key.pub
+
+# รหัสผ่านตัวเป็น ๆ จาก seed-accounts.js และ dump ของ DB — ห้ามขึ้น git
+accounts.csv
+*.sql

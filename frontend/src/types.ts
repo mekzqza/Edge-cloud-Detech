@@ -15,6 +15,10 @@ export type Detection = {
   confidence?: number | null; // YOLO det conf ของกล่องป้าย
   plate_confidence?: number | null; // OCR conf ของเลขทะเบียน
   province_confidence?: number | null; // fuzzy match conf ของจังหวัด
+  // 3 ฟิลด์นี้มีเฉพาะ /api/detections/plate/:plate และเฉพาะ admin — vehicle_status null = ไม่มีรถคันนี้ในระบบ
+  owner_name?: string | null; // null = รถ import มาโดยยังไม่รู้เจ้าของ
+  owner_contact?: string | null;
+  vehicle_status?: Status | null;
   verified: boolean | null;
   access_granted: boolean; // ตรงกับ vehicles ที่ approved ไหม — คิดตอนบันทึก ไม่คำนวณใหม่
   direction: "in" | "out" | "unknown";
@@ -24,7 +28,7 @@ export type Vehicle = {
   id: number;
   plate: string;
   province: string;
-  owner_id: number | null; // -> owners.id (NULL = ยังไม่รู้เจ้าของ)
+  owner_id: number | null; // -> users.id (NULL = ยังไม่รู้เจ้าของ)
   status: Status;
   created_at: string;
 };
@@ -48,4 +52,23 @@ export type Notification = {
   plate: string | null;
   province: string | null;
   direction: Detection["direction"];
+};
+
+// แถวที่คืนจาก POST /api/admin/users และ /api/admin/users/import
+// password เป็น plaintext ที่เห็นครั้งเดียว — DB เก็บแต่ hash
+export type NewAccount = {
+  id: number;
+  full_name: string | null;
+  contact: string | null;
+  username: string;
+  password: string;
+};
+
+// แถวจาก /api/admin/owners — id คือ users.id, username = null คือเจ้าของที่ยังล็อกอินไม่ได้
+export type AdminOwner = {
+  id: number;
+  full_name: string;
+  contact: string | null;
+  username: string | null;
+  vehicle_count: number;
 };

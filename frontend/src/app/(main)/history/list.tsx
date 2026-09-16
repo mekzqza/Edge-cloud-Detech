@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Lightbox from "@/app/Lightbox";
+import StatusBadge from "@/app/StatusBadge";
 import { groupVisits, type Visit } from "@/lib/visits";
 import type { Detection } from "@/types";
 
@@ -35,6 +36,25 @@ function duration(enter: string, exit: string) {
 const stale = (enter: string) =>
   Date.now() - +new Date(enter) > MAX_STAY_H * 3_600_000;
 
+// ข้อมูลเจ้าของของรอบนั้น — undefined = ทะเบียนนี้ไม่มีในตาราง vehicles
+function OwnerLine({ owner }: { owner?: Detection }) {
+  if (!owner) {
+    return (
+      <p className="mt-1 text-xs text-ink-faint">ไม่พบรถคันนี้ในระบบลงทะเบียน</p>
+    );
+  }
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
+      <span>
+        เจ้าของ: {owner.owner_name ?? <span className="text-ink-faint">ไม่ทราบ</span>}
+      </span>
+      {owner.owner_contact && <span>· {owner.owner_contact}</span>}
+      <span className="text-ink-faint">· {owner.province}</span>
+      <StatusBadge status={owner.vehicle_status!} />
+    </p>
+  );
+}
+
 // ค้นประวัติรถ — พิมพ์ทะเบียนแล้วดูว่าคันนั้นเข้า-ออกตอนไหนบ้าง
 export default function HistoryList({
   isAdmin,
@@ -48,6 +68,15 @@ export default function HistoryList({
   const [rows, setRows] = useState<Detection[]>([]);
   const [zoom, setZoom] = useState<string | null>(null); // รูปที่กำลังดูเต็มจอ
   const [busy, startTransition] = useTransition();
+
+  // ทะเบียน → แถวล่าสุดที่รู้ว่าเป็นรถคันไหน (rows เรียงใหม่→เก่า กลับด้านให้แถวใหม่เขียนทับทีหลัง)
+  // non-admin ไม่มี vehicle_status มาเลย map นี้เลยว่างเอง
+  const owners = new Map(
+    rows
+      .filter((r) => r.vehicle_status != null)
+      .reverse()
+      .map((r) => [r.plate, r] as const),
+  );
 
   function run(plate: string) {
     startTransition(async () => {
@@ -93,7 +122,8 @@ export default function HistoryList({
       <header className="border-b border-border pb-4">
         <h1 className="text-lg font-medium">ค้นประวัติรถ</h1>
         <p className="mt-0.5 text-xs text-ink-faint">
-          พิมพ์เลขทะเบียน (บางส่วนก็ได้) เพื่อดูเวลาเข้า-ออกของรถคันนั้น
+          พิมพ์เลขทะเบียน{isAdmin && "หรือชื่อเจ้าของ"} (บางส่วนก็ได้)
+          เพื่อดูเวลาเข้า-ออกของรถคันนั้น
         </p>
 
         <form onSubmit={search} className="mt-3 flex gap-2">
@@ -101,7 +131,7 @@ export default function HistoryList({
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="เช่น กพ1687"
+            placeholder={isAdmin ? "เช่น กพ1687 หรือ สมชาย" : "เช่น กพ1687"}
             className="w-full max-w-xs rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           />
           <button
@@ -118,7 +148,7 @@ export default function HistoryList({
         <p className="mt-8 text-sm text-ink-faint">ยังไม่ได้ค้นหา</p>
       ) : visits.length === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">
-          ไม่พบทะเบียนที่ตรงกับ “{q}”
+          ไม่พบทะเบียน{isAdmin && "หรือเจ้าของ"}ที่ตรงกับ “{q}”
         </p>
       ) : (
         <>
@@ -175,6 +205,10 @@ export default function HistoryList({
                       {v.shots} ภาพ)
                     </span>
                   </div>
+
+                  {isAdmin && (
+                    <OwnerLine owner={owners.get(v.plate)} />
+                  )}
                 </div>
 
                 {isAdmin && (

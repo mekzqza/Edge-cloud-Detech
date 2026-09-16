@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Plate from "../Plate";
 import GoogleButton from "../GoogleButton";
+import CredentialsForm from "./form";
 
 export default function LoginPage() {
   return (
@@ -25,6 +26,15 @@ export default function LoginPage() {
         </div>
 
         <GoogleButton label="เข้าสู่ระบบด้วย Google" />
+
+        {/* เส้นคั่น — span สูง 1px สองข้าง ไม่ต้องมี ::before/::after */}
+        <div className="flex items-center gap-3 text-xs text-ink-faint">
+          <span className="h-px flex-1 bg-border" />
+          หรือ
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
+        <CredentialsForm />
 
         <p className="border-t border-border pt-4 text-center text-xs text-ink-faint">
           ยังไม่ล็อกอินก็{" "}

@@ -10,6 +10,10 @@ export default auth((req) => {
   if (!req.auth && pathname !== "/") {
     return Response.redirect(new URL("/login", req.nextUrl));
   }
+  // รหัสที่ admin ตั้งให้ยังไม่ถูกเปลี่ยน — ไปไหนไม่ได้นอกจากหน้าเปลี่ยนรหัส
+  if (req.auth?.user?.mustChange && pathname !== "/password") {
+    return Response.redirect(new URL("/password", req.nextUrl));
+  }
 });
 
 export const config = {

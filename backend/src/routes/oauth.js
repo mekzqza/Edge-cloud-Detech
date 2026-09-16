@@ -10,7 +10,7 @@ if (!INTERNAL_SECRET) throw new Error("INTERNAL_SECRET is not set");
 const MAX_ATTEMPTS = 5;
 
 // POST /api/oauth  { email, emailVerified } → { token, role }
-// ทางเข้าเดียวของระบบ — ไม่มี login ด้วยรหัสผ่านแล้ว
+// ทางเข้าฝั่ง Google — อีกทางคือ /api/login ด้วยรหัสที่ admin ตั้งให้
 router.post("/oauth", async (req, res) => {
   if (req.headers["x-internal-secret"] !== INTERNAL_SECRET) {
     return res.status(403).json({ error: "Forbidden" });
