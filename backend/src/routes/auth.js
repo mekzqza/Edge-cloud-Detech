@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const { Router } = require("express");
 const { pool } = require("../db");
 const {
@@ -7,6 +8,7 @@ const {
   requireUser,
   requireAdmin,
 } = require("../auth");
+const { parseCsv } = require("../csv");
 
 const router = Router();
 
@@ -14,8 +16,23 @@ const h = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const MIN_PASSWORD_LEN = 8;
 const MIN_USERNAME_LEN = 3;
+const MAX_IMPORT_ROWS = 200;
 
 const str = (v) => (typeof v === "string" && v.trim() !== "" ? v : null);
+
+// รหัสเริ่มต้นที่ระบบตั้งให้ — เจ้าของต้องเปลี่ยนเองตอนล็อกอินครั้งแรกอยู่แล้ว
+const randomPassword = () => crypto.randomBytes(6).toString("base64url");
+
+// จอง id ล่วงหน้าเพื่อตั้ง username = u<id> ได้ตั้งแต่ก่อน INSERT
+// (ชื่อไทยแปลงเป็น ascii ไม่ได้ ใช้ id ที่การันตีไม่ซ้ำอยู่แล้ว — เหมือน seed-accounts.js)
+async function nextUserIds(n) {
+  const { rows } = await pool.query(
+    `SELECT nextval(pg_get_serial_sequence('users', 'id'))::int AS id
+       FROM generate_series(1, $1)`,
+    [n],
+  );
+  return rows.map((r) => r.id);
+}
 
 // ponytail: กัน brute-force แบบนับในหน่วยความจำ — process เดียว รีสตาร์ตแล้วลืม
 // ย้ายไป redis/express-rate-limit ตอนขึ้นหลาย instance
@@ -135,19 +152,19 @@ router.get(
   }),
 );
 
-// admin แจก account ให้เจ้าของที่มีชื่ออยู่แล้ว แล้วบอกรหัสไปให้เขาเปลี่ยนเอง
-// userId = แถวเจ้าของที่ import มา (เติม username/รหัสให้แถวเดิม), ไม่ส่ง = สร้างแถวใหม่
+// admin แจก account แล้วบอก username/รหัสไปให้เจ้าของเปลี่ยนเอง
+// userId = แถวเจ้าของที่ import มา (เติม username/รหัสให้แถวเดิม), ไม่ส่ง = สร้างคนใหม่ทั้งแถว
+// username/password ไม่ส่งมา = ระบบตั้งให้ แล้วคืนกลับไปทั้งคู่ในคำตอบ
 router.post(
   "/admin/users",
   requireAdmin,
   h(async (req, res) => {
-    const username = str(req.body.username)?.trim();
-    const password = str(req.body.password);
+    const username = str(req.body.username)?.trim() ?? null;
+    const password = str(req.body.password) ?? randomPassword();
+    const fullName = str(req.body.full_name)?.trim() ?? null;
+    const contact = str(req.body.contact)?.trim() ?? null;
     const userId = req.body.userId == null ? null : Number(req.body.userId);
-    if (!username || !password) {
-      return res.status(400).json({ error: "ต้องมี username, password" });
-    }
-    if (username.length < MIN_USERNAME_LEN) {
+    if (username !== null && username.length < MIN_USERNAME_LEN) {
       return res
         .status(400)
         .json({ error: `username ต้องยาวอย่างน้อย ${MIN_USERNAME_LEN} ตัว` });
@@ -160,7 +177,12 @@ router.post(
     if (userId !== null && !Number.isInteger(userId)) {
       return res.status(400).json({ error: "userId ไม่ถูกต้อง" });
     }
+    if (userId === null && !fullName) {
+      return res.status(400).json({ error: "ต้องมีชื่อ-นามสกุลของเจ้าของ" });
+    }
 
+    const id = userId ?? (await nextUserIds(1))[0];
+    const name = username ?? `u${id}`;
     const hash = hashPassword(password);
     try {
       // username IS NULL ใน WHERE = กันแย่ง account ของคนที่มีอยู่แล้ว ในคิวรี่เดียว
@@ -169,21 +191,22 @@ router.post(
             `UPDATE users
                 SET username = $1, password_hash = $2, must_change_password = true
               WHERE id = $3 AND username IS NULL
-              RETURNING id, username`,
-            [username, hash, userId],
+              RETURNING id, username, full_name, contact`,
+            [name, hash, userId],
           )
         : await pool.query(
-            `INSERT INTO users (username, password_hash, role, must_change_password)
-             VALUES ($1, $2, 'user', true)
-             RETURNING id, username`,
-            [username, hash],
+            `INSERT INTO users (id, username, password_hash, full_name, contact,
+                                role, must_change_password)
+             VALUES ($1, $2, $3, $4, $5, 'user', true)
+             RETURNING id, username, full_name, contact`,
+            [id, name, hash, fullName, contact],
           );
       if (!rows[0]) {
         return res
           .status(409)
           .json({ error: "เจ้าของรายนี้มี account อยู่แล้ว" });
       }
-      res.status(201).json(rows[0]);
+      res.status(201).json({ ...rows[0], password });
     } catch (e) {
       if (e.code === "23505")
         return res.status(409).json({ error: "username นี้ถูกใช้แล้ว" });
@@ -192,4 +215,133 @@ router.post(
   }),
 );
 
+// แยกแถวที่สร้างได้ (Map ชื่อ -> ติดต่อ) ออกจากแถวที่ต้องข้าม
+// ชื่อที่มีแถวอยู่แล้ว (เจ้าของที่ import ทะเบียนมา/account เดิม) ไม่สร้างซ้ำ —
+// ponytail: คนพวกนี้แจก account ด้วยปุ่มในตารางเจ้าของแทน จะได้ไม่ต้องเดาว่าแถวไหนคือคนเดียวกัน
+function planUsers(records, existingNames) {
+  const taken = new Set(existingNames);
+  const skipped = [];
+  const wanted = new Map();
+  for (const r of records) {
+    const fullName = (r.full_name ?? "").trim();
+    if (!fullName) {
+      skipped.push({ full_name: "(ว่าง)", reason: "ไม่มีชื่อ" });
+    } else if (taken.has(fullName)) {
+      skipped.push({ full_name: fullName, reason: "มีชื่อนี้ในระบบแล้ว" });
+    } else if (wanted.has(fullName)) {
+      skipped.push({ full_name: fullName, reason: "ชื่อซ้ำในไฟล์" });
+    } else {
+      wanted.set(fullName, (r.contact ?? "").trim() || null);
+    }
+  }
+  return { wanted, skipped };
+}
+
+// POST /api/admin/users/import — body เป็น CSV ดิบ, Content-Type: text/csv
+// header ต้องมี full_name ; contact เป็นตัวเลือก — ตั้ง username/รหัสให้ทุกแถวแล้วคืนไปให้ admin
+router.post(
+  "/admin/users/import",
+  requireAdmin,
+  h(async (req, res) => {
+    const text = typeof req.body === "string" ? req.body : "";
+    if (!text.trim()) {
+      return res
+        .status(400)
+        .json({ error: "ต้องส่ง CSV มาใน body พร้อม Content-Type: text/csv" });
+    }
+
+    const records = parseCsv(text);
+    if (!records.length) {
+      return res.status(400).json({ error: "ไม่มีข้อมูลในไฟล์ CSV" });
+    }
+    // ponytail: scryptSync บล็อก event loop ~80ms/แถว — 200 แถวคือเพดานที่ยังพอรอไหว
+    // ต้องมากกว่านี้ค่อยย้ายไป crypto.scrypt แบบ async แล้ว Promise.all
+    if (records.length > MAX_IMPORT_ROWS) {
+      return res
+        .status(400)
+        .json({ error: `นำเข้าได้ครั้งละไม่เกิน ${MAX_IMPORT_ROWS} แถว` });
+    }
+    if (!("full_name" in records[0])) {
+      return res.status(400).json({ error: "CSV ขาดคอลัมน์: full_name" });
+    }
+
+    const inFile = records
+      .map((r) => (r.full_name ?? "").trim())
+      .filter(Boolean);
+    const { rows: existing } = await pool.query(
+      "SELECT full_name FROM users WHERE full_name = ANY($1::text[])",
+      [inFile],
+    );
+    const { wanted, skipped } = planUsers(
+      records,
+      existing.map((e) => e.full_name),
+    );
+    if (!wanted.size) {
+      return res.json({ total: records.length, created: [], skipped });
+    }
+
+    const names = [...wanted.keys()];
+    const ids = await nextUserIds(names.length);
+    const accounts = names.map((full_name, i) => ({
+      id: ids[i],
+      full_name,
+      contact: wanted.get(full_name),
+      username: `u${ids[i]}`,
+      password: randomPassword(),
+    }));
+
+    const { rows: inserted } = await pool.query(
+      `INSERT INTO users (id, username, password_hash, full_name, contact,
+                          role, must_change_password)
+       SELECT id, un, h, fn, c, 'user', true
+         FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::text[])
+              AS x(id, un, h, fn, c)
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
+      [
+        ids,
+        accounts.map((a) => a.username),
+        accounts.map((a) => hashPassword(a.password)),
+        names,
+        accounts.map((a) => a.contact),
+      ],
+    );
+
+    const ok = new Set(inserted.map((r) => r.id));
+    for (const a of accounts) {
+      if (!ok.has(a.id)) {
+        skipped.push({
+          full_name: a.full_name,
+          reason: "username ซ้ำกับของเดิม",
+        });
+      }
+    }
+    res.json({
+      total: records.length,
+      created: accounts.filter((a) => ok.has(a.id)),
+      skipped,
+    });
+  }),
+);
+
 module.exports = router;
+
+// node src/routes/auth.js — เช็คการคัดแถวอย่างเดียว ส่วน SQL ต้องยิงจริงถึงจะรู้
+if (require.main === module) {
+  const assert = require("assert");
+  const { wanted, skipped } = planUsers(
+    [
+      { full_name: "สมชาย", contact: "081" },
+      { full_name: " สมชาย ", contact: "" }, // ซ้ำในไฟล์ (parseCsv trim มาแล้ว แต่เผื่อไว้)
+      { full_name: "สมหญิง" },
+      { full_name: "" },
+    ],
+    ["สมหญิง"],
+  );
+  assert.deepStrictEqual([...wanted], [["สมชาย", "081"]]);
+  assert.deepStrictEqual(
+    skipped.map((s) => s.reason),
+    ["ชื่อซ้ำในไฟล์", "มีชื่อนี้ในระบบแล้ว", "ไม่มีชื่อ"],
+  );
+  console.log("planUsers ok");
+}

@@ -54,6 +54,16 @@ export type Notification = {
   direction: Detection["direction"];
 };
 
+// แถวที่คืนจาก POST /api/admin/users และ /api/admin/users/import
+// password เป็น plaintext ที่เห็นครั้งเดียว — DB เก็บแต่ hash
+export type NewAccount = {
+  id: number;
+  full_name: string | null;
+  contact: string | null;
+  username: string;
+  password: string;
+};
+
 // แถวจาก /api/admin/owners — id คือ users.id, username = null คือเจ้าของที่ยังล็อกอินไม่ได้
 export type AdminOwner = {
   id: number;
