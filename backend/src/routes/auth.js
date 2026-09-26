@@ -215,6 +215,43 @@ router.post(
   }),
 );
 
+// ลืมรหัส — admin ออกรหัสใหม่ให้ แล้วบอกเจ้าของเองเหมือนตอนแจก account
+// ไม่มีลิงก์รีเซ็ตทางอีเมล: เจ้าของรถส่วนใหญ่ไม่มีอีเมลในระบบอยู่แล้ว
+router.post(
+  "/admin/users/:id/password",
+  requireAdmin,
+  h(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: "id ไม่ถูกต้อง" });
+    }
+    const {
+      rows: [target],
+    } = await pool.query(
+      "SELECT id, username, password_hash, role FROM users WHERE id = $1",
+      [id],
+    );
+    if (!target?.username) {
+      return res.status(404).json({ error: "ไม่พบ account นี้" });
+    }
+
+    // ponytail: ยังไม่กันอะไร — admin รีเซ็ตได้ทุก account รวม admin ด้วยกันและบัญชี Google ล้วน
+    // (จะกลายเป็นล็อกอินด้วยรหัสได้ด้วย) เพิ่ม 403/409 ตรงนี้ถ้า admin ไม่ได้ไว้ใจกันหมด
+
+    const password = randomPassword();
+    const {
+      rows: [row],
+    } = await pool.query(
+      `UPDATE users SET password_hash = $1, must_change_password = true
+        WHERE id = $2
+        RETURNING id, username, full_name, contact`,
+      [hashPassword(password), id],
+    );
+    fails.delete(row.username.toLowerCase()); // ลืมรหัสมักโดนล็อกจากกดผิดมาแล้ว ปลดให้ด้วย
+    res.json({ ...row, password });
+  }),
+);
+
 // แยกแถวที่สร้างได้ (Map ชื่อ -> ติดต่อ) ออกจากแถวที่ต้องข้าม
 // ชื่อที่มีแถวอยู่แล้ว (เจ้าของที่ import ทะเบียนมา/account เดิม) ไม่สร้างซ้ำ —
 // ponytail: คนพวกนี้แจก account ด้วยปุ่มในตารางเจ้าของแทน จะได้ไม่ต้องเดาว่าแถวไหนคือคนเดียวกัน

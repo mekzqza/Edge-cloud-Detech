@@ -69,7 +69,11 @@ export default function Accounts({ token }: { token: string }) {
     setBusy(true);
     try {
       const accounts = await fn();
-      setCreated((c) => [...accounts, ...c]);
+      // รีเซ็ตซ้ำคนเดิม = รหัสเก่าใช้ไม่ได้แล้ว เอาแถวเก่าออก
+      setCreated((c) => [
+        ...accounts,
+        ...c.filter((x) => !accounts.some((a) => a.id === x.id)),
+      ]);
       load();
       return accounts;
     } catch (e) {
@@ -182,7 +186,7 @@ export default function Accounts({ token }: { token: string }) {
         <div className="mt-6 rounded-lg border border-border bg-surface p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm">
-              สร้างแล้ว {created.length} account —{" "}
+              ออกรหัสแล้ว {created.length} account —{" "}
               <span className="text-ink-muted">
                 รหัสผ่านแสดงเฉพาะตอนนี้ ออกจากหน้านี้แล้วดูซ้ำไม่ได้
               </span>
@@ -243,8 +247,29 @@ export default function Accounts({ token }: { token: string }) {
                 <td className="py-2 text-ink-muted">{o.vehicle_count}</td>
                 <td className="py-2">
                   {o.username ? (
-                    <span className="font-mono text-ink-muted">
-                      {o.username}
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-ink-muted">
+                        {o.username}
+                      </span>
+                      <button
+                        disabled={busy}
+                        onClick={() => {
+                          if (
+                            !confirm(
+                              `ออกรหัสใหม่ให้ ${o.username}? รหัสเดิมจะใช้ไม่ได้ทันที`,
+                            )
+                          )
+                            return;
+                          run(async () => [
+                            await api(`/api/admin/users/${o.id}/password`, {
+                              method: "POST",
+                            }),
+                          ]);
+                        }}
+                        className="rounded-md border border-border px-2 py-1 text-xs hover:bg-surface-muted disabled:opacity-50"
+                      >
+                        รีเซ็ตรหัส
+                      </button>
                     </span>
                   ) : (
                     <button
