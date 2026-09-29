@@ -134,6 +134,22 @@ router.post(
   }),
 );
 
+// ชื่อ/ช่องทางติดต่อจาก body — ใช้ทั้งผู้ใช้แก้เอง (/me) และ admin แก้ให้ (/admin/users/:id)
+// ชื่อคือสิ่งที่ admin เห็นตอนอนุมัติรถ/ค้นประวัติ เลยห้ามว่าง; contact ว่าง/ไม่ส่ง = ไม่มีช่องทางติดต่อ
+// คืน { fullName, contact } หรือ { error }
+function profileInput(body) {
+  const fullName = str(body.full_name)?.trim() ?? null;
+  const contact = str(body.contact)?.trim() ?? null;
+  if (!fullName) return { error: "ต้องมีชื่อ-นามสกุล" };
+  if (
+    fullName.length > MAX_PROFILE_LEN ||
+    (contact?.length ?? 0) > MAX_PROFILE_LEN
+  ) {
+    return { error: `ยาวได้ไม่เกิน ${MAX_PROFILE_LEN} ตัวอักษร` };
+  }
+  return { fullName, contact };
+}
+
 // บัญชีของตัวเอง — หน้า /account ใช้ดูและแก้ชื่อ/ช่องทางติดต่อ
 // has_password = มีรหัสให้เปลี่ยนไหม (บัญชี Google ล้วนไม่มี) — ไม่ส่ง hash ออกไป
 const ME = `id, username, email, full_name, contact, role,
@@ -151,29 +167,17 @@ router.get(
 );
 
 // แก้ได้แค่ชื่อกับช่องทางติดต่อ — username เป็นคีย์ล็อกอินและอยู่ใน token, role ต้องให้ admin เปลี่ยน
-// ชื่อคือสิ่งที่ admin เห็นตอนอนุมัติรถ เลยห้ามว่าง; contact ว่าง/ไม่ส่ง = ไม่มีช่องทางติดต่อ
 router.patch(
   "/me",
   requireUser,
   h(async (req, res) => {
-    const fullName = str(req.body.full_name)?.trim() ?? null;
-    const contact = str(req.body.contact)?.trim() ?? null;
-    if (!fullName) {
-      return res.status(400).json({ error: "ต้องมีชื่อ-นามสกุล" });
-    }
-    if (
-      fullName.length > MAX_PROFILE_LEN ||
-      (contact?.length ?? 0) > MAX_PROFILE_LEN
-    ) {
-      return res
-        .status(400)
-        .json({ error: `ยาวได้ไม่เกิน ${MAX_PROFILE_LEN} ตัวอักษร` });
-    }
+    const p = profileInput(req.body);
+    if (p.error) return res.status(400).json({ error: p.error });
     const {
       rows: [me],
     } = await pool.query(
       `UPDATE users SET full_name = $1, contact = $2 WHERE id = $3 RETURNING ${ME}`,
-      [fullName, contact, req.user.id],
+      [p.fullName, p.contact, req.user.id],
     );
     res.json(me);
   }),
@@ -182,6 +186,8 @@ router.patch(
 // รายชื่อเจ้าของ + สถานะ account — หน้า admin ใช้เลือกว่าจะแจก account ให้ใคร
 // เจ้าของกับ account เป็นแถวเดียวกันแล้ว: username NULL = ยังล็อกอินไม่ได้ ขึ้นก่อน
 // แบ่งหน้าด้วย ?limit=&offset= คืน { rows, total } — total ไว้ให้หน้าเว็บคำนวณจำนวนหน้า
+// full_name ส่งค่าจริง (NULL = ยังไม่ตั้งชื่อ) หน้าเว็บแสดง username แทนเอง —
+// ถ้า COALESCE ไว้ตรงนี้ ฟอร์มแก้ไขจะแยกไม่ออกแล้วเผลอบันทึก username เป็นชื่อ
 router.get(
   "/admin/owners",
   requireAdmin,
@@ -202,7 +208,7 @@ router.get(
     const [page, count] = await Promise.all([
       // u.id ปิดท้าย ORDER BY — ชื่อซ้ำกันแล้วลำดับไม่ตายตัว คนเดียวกันจะโผล่สองหน้า/หายไปจากทุกหน้า
       pool.query(
-        `SELECT u.id, COALESCE(u.full_name, u.username) AS full_name, u.contact,
+        `SELECT u.id, u.full_name, u.contact,
                 u.username, count(v.id)::int AS vehicle_count
            FROM users u
            LEFT JOIN vehicles v ON v.owner_id = u.id
@@ -277,6 +283,31 @@ router.post(
         return res.status(409).json({ error: "username นี้ถูกใช้แล้ว" });
       throw e;
     }
+  }),
+);
+
+// admin แก้ชื่อ/ช่องทางติดต่อให้เจ้าของ (รวมเจ้าของที่ยังไม่มี account)
+// ไม่ต้องไล่อัปเดตที่อื่น — detections/vehicles ไม่ได้เก็บสำเนาชื่อ /history กับ /admin/requests
+// join ชื่อจาก users ตอนค้นทุกครั้ง แก้ที่นี่แล้วผลค้นเปลี่ยนตามทันที
+router.patch(
+  "/admin/users/:id",
+  requireAdmin,
+  h(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: "id ไม่ถูกต้อง" });
+    }
+    const p = profileInput(req.body);
+    if (p.error) return res.status(400).json({ error: p.error });
+    const {
+      rows: [row],
+    } = await pool.query(
+      `UPDATE users SET full_name = $1, contact = $2 WHERE id = $3
+       RETURNING id, username, full_name, contact`,
+      [p.fullName, p.contact, id],
+    );
+    if (!row) return res.status(404).json({ error: "ไม่พบเจ้าของรายนี้" });
+    res.json(row);
   }),
 );
 

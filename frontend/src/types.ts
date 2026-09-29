@@ -67,7 +67,7 @@ export type NewAccount = {
 // แถวจาก /api/admin/owners — id คือ users.id, username = null คือเจ้าของที่ยังล็อกอินไม่ได้
 export type AdminOwner = {
   id: number;
-  full_name: string;
+  full_name: string | null; // null = ยังไม่ได้ตั้งชื่อ (หน้าเว็บแสดง username แทน)
   contact: string | null;
   username: string | null;
   vehicle_count: number;
