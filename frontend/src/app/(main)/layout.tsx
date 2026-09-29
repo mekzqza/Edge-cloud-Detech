@@ -31,7 +31,7 @@ export default async function MainLayout({
       <aside className="w-56 shrink-0 overflow-hidden border-r border-border bg-surface transition-[width] peer-checked:w-12 max-sm:w-12 max-sm:peer-checked:fixed max-sm:peer-checked:inset-y-0 max-sm:peer-checked:left-0 max-sm:peer-checked:z-20 max-sm:peer-checked:w-56 max-sm:peer-checked:shadow-lg motion-reduce:transition-none">
         <div className="flex h-full w-56 flex-col">
           <div className="border-b border-border py-4 pl-12 pr-4 font-medium">
-            <span className="rail-hide">Edge Cloud Detect</span>
+            <span className="rail-hide">GateVision</span>
           </div>
           <Nav />
           <div className="rail-hide border-t border-border p-4 text-sm">
