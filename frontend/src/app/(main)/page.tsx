@@ -2,17 +2,24 @@
 
 import { useEffect, useState } from "react";
 import type { Detection } from "@/types";
+import DeviceStatusLight from "@/app/DeviceStatusLight";
+
+// ตัดวันตามเวลาไทยให้ตรงกับ backend — server (UTC) กับ browser จะได้ render วันเดียวกันด้วย
+const TZ = "Asia/Bangkok";
+
+type Counts = { dir_in: number; dir_out: number };
+// จาก GET /api/detections/overview — days = ช่วงของตัวเลขชุดนี้, totals = การ์ดสถิติ,
+// chart = จำนวนต่อชั่วโมง/วัน (เฉพาะช่องที่มีรถ)
+type Overview = {
+  days: number;
+  totals: Counts & { denied: number; read_ok: number; read_partial: number };
+  chart: (Counts & { k: string })[];
+};
 
 export default function OverviewPage() {
-  const [detections, setDetections] = useState<Detection[] | null>(null);
+  const [overview, setOverview] = useState<Overview | null>(null);
   const [lastDetechtion, setLastDetection] = useState<Detection[] | null>(null);
   const [range, setRange] = useState<number>(1); // ช่วงกราฟ: 1/7/15/30 วัน
-  const [chartRows, setChartRows] = useState<Detection[] | null>(null);
-
-  async function fetchDetections() {
-    const res = await fetch("/api/detections");
-    setDetections(res.ok ? await res.json() : []);
-  }
 
   async function fetchLastDetection(count: number) {
     const res = await fetch(`/api/detections/last/${count}`);
@@ -23,103 +30,94 @@ export default function OverviewPage() {
     setLastDetection(data);
   }
 
-  // ดึงข้อมูลกราฟตามช่วงวัน — ใช้ route /time/:hours (วัน × 24 ชม.)
-  async function fetchChart(days: number) {
-    const res = await fetch(`/api/detections/time/${days * 24}`);
-    setChartRows(res.ok ? await res.json() : []);
-  }
-
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchDetections();
     fetchLastDetection(4);
   }, []);
 
+  // สลับช่วงรัว ๆ แล้วคำตอบของช่วงเก่ามาถึงทีหลัง — ห้ามทับของช่วงใหม่
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchChart(range);
+    let stale = false;
+    fetch(`/api/detections/overview?days=${range}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: Overview | null) => {
+        if (!stale) setOverview(data);
+      });
+    return () => {
+      stale = true;
+    };
   }, [range]);
 
-  const today = new Date().toDateString();
-  const todayRows = detections?.filter(
-    (d) => new Date(d.created_at).toDateString() === today,
-  );
-  // ponytail: icon/tone เป็นแค่ของตกแต่ง — value/filter แก้ได้ตามสบาย
+  // ป้าย ตัวเลข และกราฟ ใช้ช่วงของข้อมูลที่ได้มาแล้ว ไม่ใช่ปุ่มที่เพิ่งกด —
+  // ระหว่างรอคำตอบจะได้ไม่ขึ้นเลขของช่วงเก่าใต้ป้ายของช่วงใหม่ (แค่จางไว้บอกว่ากำลังโหลด)
+  const days = overview?.days ?? range;
+  const loading = overview?.days !== range;
+  // ต่อท้ายชื่อการ์ด: "วันนี้" ติดคำ ตัวเลขเว้นวรรค → "รถเข้าวันนี้" / "รถเข้า 7 วัน"
+  // ห่อ nowrap ตอน render — การ์ดแคบบนมือถือจะได้ไม่ตัดกลางคำเป็น "วัน / นี้"
+  const period = days === 1 ? "วันนี้" : `${days} วัน`;
+  const from = new Date();
+  from.setTime(from.getTime() - (days - 1) * 86_400_000);
+
+  // ponytail: icon/tone เป็นแค่ของตกแต่ง
+  // ทุกใบนับตามช่วงที่เลือก (ตัดวันตามเวลาไทย) — ความหมายของ "อ่านได้/บางส่วน" อยู่ที่ backend
+  const t = overview?.totals;
   const stats = [
     {
-      label: "รถเข้าวันนี้",
-      value: todayRows?.filter((d) => d.direction === "in").length,
+      label: "รถเข้า",
+      value: t?.dir_in,
       icon: <CarIcon />,
       tone: "",
     },
     {
-      label: "รถออกวันนี้",
-      value: todayRows?.filter((d) => d.direction === "out").length,
+      label: "รถออก",
+      value: t?.dir_out,
       icon: <CarIcon />,
       tone: "",
     },
     {
-      // อ่านออกทั้ง 2 ฟิลด์
       label: "อ่านป้ายสำเร็จ",
-      value: detections?.filter(
-        (d) =>
-          d.plate &&
-          d.plate != "UNKNOWN" &&
-          d.province &&
-          d.province != "UNKNOWN",
-      ).length,
+      value: t?.read_ok,
       icon: <BadgeCheckIcon />,
       tone: "",
     },
     {
       label: "รถแปลกปลอม",
-      value: detections?.filter((d) => !d.access_granted).length,
+      value: t?.denied,
       icon: <AlertIcon />,
       tone: "text-danger",
     },
     {
-      // อ่านออกฟิลด์เดียว — ทะเบียนได้แต่จังหวัดไม่ได้ หรือกลับกัน
       label: "อ่านได้บางส่วน",
-      value: detections?.filter(
-        (d) =>
-          (d.plate &&
-            d.plate != "UNKNOWN" &&
-            (!d.province || d.province == "UNKNOWN")) ||
-          (d.province &&
-            d.province != "UNKNOWN" &&
-            (!d.plate || d.plate == "UNKNOWN")),
-      ).length,
+      value: t?.read_partial,
       icon: <HelpIcon />,
       tone: "",
     },
   ];
 
-  // จัด bucket กราฟ: 1 วัน = รายชั่วโมง (เฉพาะวันนี้), หลายวัน = รายวัน
-  const rows = chartRows ?? [];
-  const bucket = (inBucket: (d: Detection) => boolean) => ({
-    in: rows.filter((d) => d.direction === "in" && inBucket(d)).length,
-    out: rows.filter((d) => d.direction === "out" && inBucket(d)).length,
+  // จัด bucket กราฟ: 1 วัน = รายชั่วโมงของวันนี้, หลายวัน = รายวัน
+  // backend ส่งมาเฉพาะช่องที่มีรถ — key ต้องสร้างแบบเดียวกับ to_char ฝั่ง backend ไม่งั้นได้ 0 ทั้งกราฟ
+  const counts = new Map(overview?.chart.map((c) => [c.k, c] as const));
+  const bucket = (k: string) => ({
+    in: counts.get(k)?.dir_in ?? 0,
+    out: counts.get(k)?.dir_out ?? 0,
   });
   const buckets =
-    range === 1
+    days === 1
       ? Array.from({ length: 24 }, (_, h) => ({
           label: `${h}:00`,
-          ...bucket(
-            (d) =>
-              new Date(d.created_at).toDateString() === today &&
-              new Date(d.created_at).getHours() === h,
-          ),
+          ...bucket(String(h).padStart(2, "0")), // "HH24"
         }))
-      : Array.from({ length: range }, (_, i) => {
+      : Array.from({ length: days }, (_, i) => {
+          // ไทยไม่มี daylight saving — ถอยทีละ 24 ชม. = ถอยทีละวันพอดี
           const day = new Date();
-          day.setDate(day.getDate() - (range - 1 - i));
-          const key = day.toDateString();
+          day.setTime(day.getTime() - (days - 1 - i) * 86_400_000);
           return {
             label: day.toLocaleDateString("th-TH", {
               day: "numeric",
               month: "short",
+              timeZone: TZ,
             }),
-            ...bucket((d) => new Date(d.created_at).toDateString() === key),
+            ...bucket(day.toLocaleDateString("sv-SE", { timeZone: TZ })), // "YYYY-MM-DD"
           };
         });
   const max = Math.max(1, ...buckets.flatMap((b) => [b.in, b.out]));
@@ -131,20 +129,41 @@ export default function OverviewPage() {
         <div>
           <h1 className="text-lg font-semibold">ภาพรวมระบบ</h1>
           <p className="mt-0.5 text-sm text-ink-muted">
-            {new Date().toLocaleDateString("th-TH", {
+            {/* วันเดียวได้ "30 ก.ย. 2569", หลายวันได้ "24–30 ก.ย. 2569" */}
+            {new Intl.DateTimeFormat("th-TH", {
               day: "numeric",
               month: "short",
               year: "numeric",
-            })}{" "}
+              timeZone: TZ,
+            }).formatRange(from, new Date())}{" "}
             · ทางเข้า
           </p>
         </div>
-        <span className="flex items-center gap-2 text-sm text-success">
-          <span className="h-2 w-2 rounded-full bg-success" /> กล้องออนไลน์
-        </span>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* ช่วงเวลาคุมทั้งหน้า (การ์ด + กราฟ) เลยอยู่บนสุด ไม่ได้อยู่ในกล่องกราฟ */}
+          <div className="inline-flex rounded-md border border-border bg-surface p-0.5 text-sm">
+            {[1, 7, 15, 30].map((n) => (
+              <button
+                key={n}
+                onClick={() => setRange(n)}
+                aria-pressed={range === n}
+                className={`rounded-[6px] px-3 py-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
+                  range === n
+                    ? "bg-ink text-surface"
+                    : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                {n === 1 ? "วันนี้" : `${n} วัน`}
+              </button>
+            ))}
+          </div>
+          <DeviceStatusLight />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5">
+      <div
+        className={`grid grid-cols-2 gap-3 transition-opacity md:grid-cols-3 md:gap-4 xl:grid-cols-5 ${loading ? "opacity-50" : ""}`}
+      >
         {stats.map((s) => (
           <div
             key={s.label}
@@ -152,7 +171,12 @@ export default function OverviewPage() {
           >
             <div className="flex items-center gap-1.5 text-sm text-ink-muted">
               {s.icon}
-              {s.label}
+              {/* span เดียวครอบ — ข้อความหลายชิ้นใน flex จะแยกเป็นหลาย item แล้วโดน gap คั่น */}
+              <span>
+                {s.label}
+                {days > 1 && " "}
+                <span className="whitespace-nowrap">{period}</span>
+              </span>
             </div>
             <div className={`mt-2 text-3xl font-semibold ${s.tone}`}>
               {s.value ?? "—"}
@@ -163,27 +187,12 @@ export default function OverviewPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-border bg-surface p-4 lg:col-span-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-medium">
-              {range === 1 ? "รถเข้า-ออกรายชั่วโมง" : "รถเข้า-ออกรายวัน"}
-            </h2>
-            <div className="flex gap-1">
-              {[1, 7, 15, 30].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setRange(n)}
-                  className={`rounded-md px-2 py-1 text-xs transition-colors ${
-                    range === n
-                      ? "bg-surface-muted font-medium"
-                      : "text-ink-muted hover:bg-surface-muted"
-                  }`}
-                >
-                  {n === 1 ? "วันนี้" : `${n} วัน`}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="mt-4 flex h-40 items-end sm:h-48">
+          <h2 className="font-medium">
+            {days === 1 ? "รถเข้า-ออกรายชั่วโมง" : "รถเข้า-ออกรายวัน"}
+          </h2>
+          <div
+            className={`mt-4 flex h-40 items-end transition-opacity sm:h-48 ${loading ? "opacity-50" : ""}`}
+          >
             {buckets.map((b) => (
               <div
                 key={b.label}
@@ -203,7 +212,12 @@ export default function OverviewPage() {
           </div>
           <div className="mt-1 flex border-t border-border pt-1 text-[10px] text-ink-faint">
             {buckets.map((b, i) => (
-              <div key={b.label} className="min-w-0 flex-1 truncate text-center">
+              // ไม่ตัดเป็น "13 ก..." — ช่องข้าง ๆ ไม่มีป้ายอยู่แล้ว (labelStep) ล้นไปได้
+              // flex + justify-center ล้นออกเท่ากันสองข้าง ป้ายเลยยังตรงกลางแท่งของมัน
+              <div
+                key={b.label}
+                className="flex min-w-0 flex-1 justify-center whitespace-nowrap"
+              >
                 {i % labelStep === 0 ? b.label : ""}
               </div>
             ))}

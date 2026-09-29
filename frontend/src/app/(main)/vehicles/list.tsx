@@ -30,8 +30,10 @@ function PlateFields({
   onPlate: (v: string) => void;
   onProvince: (v: string) => void;
 }) {
+  // h-10 ตายตัว: <select> กับ <input> สูงไม่เท่ากันเองโดยธรรมชาติ ยิ่งบนมือถือที่ globals.css
+  // ดันตัวอักษรช่องกรอกเป็น 16px (กัน iOS ซูม) — ล็อกความสูงเท่ากันทั้งคู่และเท่าปุ่ม "เพิ่มรถ"
   const field =
-    "w-full rounded-md border border-border bg-surface px-3 py-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+    "h-10 w-full rounded-md border border-border bg-surface px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
   return (
     <>
       <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
@@ -157,7 +159,8 @@ export default function VehiclesList({ token }: { token: string }) {
         onSubmit={add}
         className="mt-6 flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-4"
       >
-        <div className="flex min-w-0 max-w-md flex-1 gap-3">
+        {/* จอแคบ: ทะเบียน / จังหวัด / ปุ่ม ซ้อนกันเต็มความกว้าง — วางเรียงแถวเดียวแล้วช่องจังหวัดเหลือ ~100px ชื่อจังหวัดโดนตัด */}
+        <div className="flex min-w-0 max-w-md flex-1 gap-3 max-sm:flex-col">
           <PlateFields
             plate={plate}
             province={province}
@@ -167,7 +170,7 @@ export default function VehiclesList({ token }: { token: string }) {
         </div>
         <button
           disabled={busy}
-          className="rounded-md border border-ink bg-ink px-4 py-1.5 text-sm text-surface transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-40"
+          className="h-10 rounded-md border border-ink bg-ink px-4 text-sm text-surface transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-40 max-sm:w-full"
         >
           เพิ่มรถ
         </button>

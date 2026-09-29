@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { href: "/admin/requests", label: "คำขอเพิ่มรถ" },
   { href: "/admin/accounts", label: "บัญชีเจ้าของรถ" },
+  { href: "/admin/stat", label: "สถิติ" },
 ];
 
 export default function Tabs() {

@@ -9,7 +9,7 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -24,6 +24,7 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       INTERNAL_SECRET: ${INTERNAL_SECRET}
+      HEARTBEAT_TOKEN: ${HEARTBEAT_TOKEN}
     volumes:
       - uploads:/app/uploads
     depends_on:

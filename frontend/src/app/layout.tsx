@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Edge Cloud Detect",
+  title: "GateVision",
   icons: "/b_edge_cloud.svg",
 };
 

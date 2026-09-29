@@ -8,6 +8,9 @@ const { matchVehicle } = require("./detections-match");
 
 const router = Router();
 
+// express 4 ไม่จับ async throw เอง — ไม่ห่อแล้ว query พังจะล้มทั้ง process
+const h = (fn) => (req, res, next) => fn(req, res, next).catch(next);
+
 // โฟลเดอร์เก็บรูป (backend/uploads) — สร้างถ้ายังไม่มี
 const UPLOAD_DIR = path.join(__dirname, "../../uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -79,7 +82,7 @@ router.post("/detections", async (req, res) => {
 
   const direction = DIRECTION[String(camera ?? "").toUpperCase()] ?? "unknown";
 
-  const match = await matchVehicle(pool, plate, province);
+  const match = await matchVehicle(pool, plate, province, plate_confidence);
 
   // จับคู่รถได้ = เชื่อทะเบียนที่เจ้าของลงทะเบียนไว้มากกว่าที่ OCR อ่านมา (ทั้งป้ายและจังหวัด)
   // เชื่อพอจะเปิดประตูให้แล้ว ก็เชื่อพอจะใช้ค่าของมัน — ค่าดิบไม่หาย อยู่ใน plate_raw
@@ -161,6 +164,69 @@ router.get("/detections", async (req, res) => {
   ]);
   res.json({ rows: redact(page.rows, admin), ...counts.rows[0] });
 });
+
+// ภาพรวมทั้งตาราง detections สำหรับหน้า /admin/stat
+// avg ข้ามแถวที่เป็น NULL เอง (Pi รุ่นเก่าไม่ส่ง conf ย่อย) — ส่ง *_n กลับไปด้วยจะได้รู้ว่าเฉลี่ยจากกี่แถว
+// ::float8 เพราะ pg คืน numeric เป็น string
+router.get("/admin/stats", requireAdmin, async (_req, res) => {
+  const { rows } = await pool.query(`
+    SELECT count(*)::int AS total,
+           avg(confidence)::float8 AS confidence,
+           avg(plate_confidence)::float8 AS plate_confidence,
+           count(plate_confidence)::int AS plate_confidence_n,
+           avg(province_confidence)::float8 AS province_confidence,
+           count(province_confidence)::int AS province_confidence_n,
+           count(*) FILTER (WHERE access_granted)::int AS granted,
+           count(*) FILTER (WHERE plate <> plate_raw)::int AS corrected,
+           count(*) FILTER (WHERE direction = 'in')::int AS dir_in,
+           count(*) FILTER (WHERE direction = 'out')::int AS dir_out,
+           count(*) FILTER (WHERE direction = 'unknown')::int AS dir_unknown
+      FROM detections`);
+  res.json(rows[0]);
+});
+
+// หน้าแรก: การ์ดสถิติ + กราฟเข้า-ออก ของช่วง days วันล่าสุด (รวมวันนี้) — นับใน DB ส่งกลับแค่ตัวเลข
+// ตัดวันตามเวลาไทย เหมือน ?date= ของ GET /detections — days=1 คือตั้งแต่เที่ยงคืนวันนี้
+// chart: days=1 → รายชั่วโมง (k = "00".."23"), days>1 → รายวัน (k = "YYYY-MM-DD")
+// ชั่วโมง/วันที่ไม่มีรถจะไม่มีแถว — หน้าเว็บเติม 0 เอง
+// ส่ง days กลับไปด้วย หน้าเว็บจะได้รู้ว่าตัวเลขชุดนี้เป็นของช่วงไหน
+const SINCE = `created_at >= date_trunc('day', now(), 'Asia/Bangkok')
+                            - make_interval(days => $1::int - 1)`;
+router.get(
+  "/detections/overview",
+  h(async (req, res) => {
+    const days = Number(req.query.days ?? 1);
+    if (!Number.isInteger(days) || days < 1 || days > 90) {
+      return res.status(400).json({ error: "days ต้องเป็นจำนวนเต็ม 1..90" });
+    }
+    const [totals, chart] = await Promise.all([
+      // อ่านได้ = ไม่ว่างและไม่ใช่ UNKNOWN; บางส่วน = อ่านได้ช่องเดียว (plate_ok <> province_ok คือ XOR)
+      pool.query(
+        `SELECT count(*) FILTER (WHERE direction = 'in')::int  AS dir_in,
+                count(*) FILTER (WHERE direction = 'out')::int AS dir_out,
+                count(*) FILTER (WHERE NOT access_granted)::int AS denied,
+                count(*) FILTER (WHERE plate_ok AND province_ok)::int AS read_ok,
+                count(*) FILTER (WHERE plate_ok <> province_ok)::int AS read_partial
+           FROM (SELECT direction, access_granted,
+                        plate NOT IN ('', 'UNKNOWN') AS plate_ok,
+                        province NOT IN ('', 'UNKNOWN') AS province_ok
+                   FROM detections
+                  WHERE ${SINCE}) d`,
+        [days],
+      ),
+      pool.query(
+        `SELECT to_char(created_at AT TIME ZONE 'Asia/Bangkok', $2) AS k,
+                count(*) FILTER (WHERE direction = 'in')::int  AS dir_in,
+                count(*) FILTER (WHERE direction = 'out')::int AS dir_out
+           FROM detections
+          WHERE ${SINCE}
+          GROUP BY k`,
+        [days, days === 1 ? "HH24" : "YYYY-MM-DD"],
+      ),
+    ]);
+    res.json({ days, totals: totals.rows[0], chart: chart.rows });
+  }),
+);
 
 router.get("/detections/plate/:plate", async (req, res) => {
   const q = String(req.params.plate).trim();

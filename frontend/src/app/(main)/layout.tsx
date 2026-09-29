@@ -21,17 +21,21 @@ export default async function MainLayout({
         className="peer sr-only"
         aria-label="พับ/กางเมนู"
       />
+      {/* กล่อง 32px ตายตัว: left-2 = กลาง rail 48px ตรงแนวไอคอนเมนู, top-3 = กลางหัวแถบ h-14
+          ไม่ขึ้นกับความกว้างของตัว ☰ ที่แต่ละเครื่องใช้ฟอนต์ต่างกัน */}
       <label
         htmlFor="sidebar"
         title="พับ/กางเมนู"
-        className="absolute left-3 top-3.5 z-30 cursor-pointer rounded-md px-1.5 py-0.5 text-ink-muted hover:bg-surface-muted hover:text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink"
+        className="absolute left-2 top-3 z-30 flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-ink-muted hover:bg-surface-muted hover:text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink"
       >
         ☰
       </label>
       <aside className="w-56 shrink-0 overflow-hidden border-r border-border bg-surface transition-[width] peer-checked:w-12 max-sm:w-12 max-sm:peer-checked:fixed max-sm:peer-checked:inset-y-0 max-sm:peer-checked:left-0 max-sm:peer-checked:z-20 max-sm:peer-checked:w-56 max-sm:peer-checked:shadow-lg motion-reduce:transition-none">
         <div className="flex h-full w-56 flex-col">
-          <div className="border-b border-border py-4 pl-12 pr-4 font-medium">
-            <span className="rail-hide">Edge Cloud Detect</span>
+          {/* h-14 ตายตัว — ตอนพับ ชื่อเว็บถูกซ่อน ถ้าสูงตามเนื้อหาจะเหลือ 32px แล้วเส้นขอบล่างผ่ากลาง ☰
+              และสูงเท่า header ฝั่งขวา เส้นขอบสองฝั่งเลยต่อกันเป็นเส้นเดียว */}
+          <div className="flex h-14 items-center border-b border-border pl-12 pr-4 font-medium">
+            <span className="rail-hide">GateVision</span>
           </div>
           <Nav />
           <div className="rail-hide border-t border-border p-4 text-sm">
@@ -62,7 +66,7 @@ export default async function MainLayout({
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-11 items-center justify-end gap-2 border-b border-border bg-surface px-4 py-2 sm:px-6">
+        <header className="flex h-14 items-center justify-end gap-2 border-b border-border bg-surface px-4 sm:px-6">
           {/* กระดิ่งเรียก /api/notifications ที่ต้องมี token — guest ไม่ต้องมี */}
           {session && <NotificationBell token={session.user.backendToken} />}
           <ThemeToggle />

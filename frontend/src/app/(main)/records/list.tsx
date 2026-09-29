@@ -18,13 +18,6 @@ const pct = (c: number | null | undefined) =>
 
 type Page = { rows: Detection[]; total: number; denied: number };
 
-// ตัวกรองผลอ่านป้าย — "" = ไม่กรอง
-const plateFilters = [
-  { key: "", label: "ทุกคัน" },
-  { key: "ok", label: "อ่านป้ายได้" },
-  { key: "unread", label: "อ่านไม่ออก" },
-];
-
 // รายการรถที่กล้องตรวจจับได้ เรียงล่าสุดก่อน แบ่งหน้าจาก backend
 // direction: "out" = เฉพาะกล้องขาออก, ไม่ใส่ = ทุกทิศทาง (รวมแถวเก่าที่ยังเป็น unknown)
 export default function RecordsList({
@@ -40,7 +33,6 @@ export default function RecordsList({
   const [page, setPage] = useState(1);
   const [onlyDenied, setOnlyDenied] = useState(false);
   const [date, setDate] = useState(""); // "" = ทุกวัน
-  const [plateFilter, setPlateFilter] = useState("");
   const [zoom, setZoom] = useState<string | null>(null); // รูปที่กำลังดูเต็มจอ
   const [busy, startTransition] = useTransition(); // busy = ระหว่างสลับหน้า/รีเฟรช
 
@@ -51,7 +43,6 @@ export default function RecordsList({
         offset: String((page - 1) * PER_PAGE),
         ...(onlyDenied ? { denied: "1" } : {}),
         ...(date ? { date } : {}),
-        ...(plateFilter ? { plate: plateFilter } : {}),
         ...(direction ? { direction } : {}),
       });
       const res = await fetch(`/api/detections?${q}`, {
@@ -59,7 +50,7 @@ export default function RecordsList({
       });
       setData(res.ok ? await res.json() : { rows: [], total: 0, denied: 0 });
     });
-  }, [page, onlyDenied, date, plateFilter, direction, token]);
+  }, [page, onlyDenied, date, direction, token]);
 
   useEffect(() => {
     load();
@@ -117,25 +108,6 @@ export default function RecordsList({
           ))}
         </div>
 
-        <div className="inline-flex rounded-md border border-border bg-surface p-0.5 text-sm">
-          {plateFilters.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => {
-                setPlateFilter(f.key);
-                setPage(1);
-              }}
-              className={`rounded-[6px] px-3 py-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
-                plateFilter === f.key
-                  ? "bg-ink text-surface"
-                  : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
         {/* ponytail: input type=date ของเบราว์เซอร์เอง — ไม่ต้องลง date picker */}
         <input
           type="date"
@@ -174,7 +146,7 @@ export default function RecordsList({
         <p className="mt-8 text-sm text-ink-muted">
           {onlyDenied
             ? "ทุกคันมีสิทธิ์เข้า"
-            : date || plateFilter
+            : date
               ? "ไม่มีรถที่ตรงกับตัวกรอง"
               : `ยังไม่มีบันทึก${noun}`}
         </p>

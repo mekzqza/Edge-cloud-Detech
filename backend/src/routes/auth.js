@@ -135,20 +135,39 @@ router.post(
 
 // รายชื่อเจ้าของ + สถานะ account — หน้า admin ใช้เลือกว่าจะแจก account ให้ใคร
 // เจ้าของกับ account เป็นแถวเดียวกันแล้ว: username NULL = ยังล็อกอินไม่ได้ ขึ้นก่อน
+// แบ่งหน้าด้วย ?limit=&offset= คืน { rows, total } — total ไว้ให้หน้าเว็บคำนวณจำนวนหน้า
 router.get(
   "/admin/owners",
   requireAdmin,
-  h(async (_req, res) => {
-    const { rows } = await pool.query(
-      `SELECT u.id, COALESCE(u.full_name, u.username) AS full_name, u.contact,
-              u.username, count(v.id)::int AS vehicle_count
-         FROM users u
-         LEFT JOIN vehicles v ON v.owner_id = u.id
-        GROUP BY u.id
-        ORDER BY u.username IS NOT NULL, COALESCE(u.full_name, u.username)
-        LIMIT 500`,
-    );
-    res.json(rows);
+  h(async (req, res) => {
+    const limit = Number(req.query.limit ?? 20);
+    const offset = Number(req.query.offset ?? 0);
+    if (
+      !Number.isInteger(limit) ||
+      limit <= 0 ||
+      limit > 100 ||
+      !Number.isInteger(offset) ||
+      offset < 0
+    ) {
+      return res
+        .status(400)
+        .json({ error: "limit (1..100) / offset ไม่ถูกต้อง" });
+    }
+    const [page, count] = await Promise.all([
+      // u.id ปิดท้าย ORDER BY — ชื่อซ้ำกันแล้วลำดับไม่ตายตัว คนเดียวกันจะโผล่สองหน้า/หายไปจากทุกหน้า
+      pool.query(
+        `SELECT u.id, COALESCE(u.full_name, u.username) AS full_name, u.contact,
+                u.username, count(v.id)::int AS vehicle_count
+           FROM users u
+           LEFT JOIN vehicles v ON v.owner_id = u.id
+          GROUP BY u.id
+          ORDER BY u.username IS NOT NULL, COALESCE(u.full_name, u.username), u.id
+          LIMIT $1 OFFSET $2`,
+        [limit, offset],
+      ),
+      pool.query("SELECT count(*)::int AS total FROM users"),
+    ]);
+    res.json({ rows: page.rows, total: count.rows[0].total });
   }),
 );
 
