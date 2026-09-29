@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Detection } from "@/types";
+import DeviceStatusLight from "@/app/DeviceStatusLight";
 
 export default function OverviewPage() {
   const [detections, setDetections] = useState<Detection[] | null>(null);
@@ -139,9 +140,7 @@ export default function OverviewPage() {
             · ทางเข้า
           </p>
         </div>
-        <span className="flex items-center gap-2 text-sm text-success">
-          <span className="h-2 w-2 rounded-full bg-success" /> กล้องออนไลน์
-        </span>
+        <DeviceStatusLight />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5">

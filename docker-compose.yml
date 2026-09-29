@@ -24,6 +24,7 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       INTERNAL_SECRET: ${INTERNAL_SECRET}
+      HEARTBEAT_TOKEN: ${HEARTBEAT_TOKEN}
     volumes:
       - uploads:/app/uploads
     depends_on:
