@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import type { AdminOwner, NewAccount } from "@/types";
+import { pageList } from "@/lib/pagination";
+
+// ponytail: แบ่งหน้าฝั่ง client — เจ้าของรถหลักร้อยโหลดทีเดียวได้ ถ้าหลักหมื่นค่อยย้ายไป limit/offset ที่ backend
+const PER_PAGE = 20;
+const PAGE_WINDOW = 2;
 
 const INPUT =
   "rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none focus-visible:border-info";
@@ -36,6 +41,7 @@ export default function Accounts({ token }: { token: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [, startTransition] = useTransition();
+  const [page, setPage] = useState(1);
 
   const api = useCallback(
     async (path: string, init: RequestInit) => {
@@ -111,6 +117,11 @@ export default function Accounts({ token }: { token: string }) {
       return r.created as NewAccount[];
     });
   }
+
+  const lastPage = Math.max(1, Math.ceil((rows?.length ?? 0) / PER_PAGE));
+  // จำนวนแถวลดลง (เช่นโหลดใหม่) แล้วหน้าเดิมหายไป ให้ตกไปหน้าสุดท้ายแทนตารางว่าง
+  const cur = Math.min(page, lastPage);
+  const shown = rows?.slice((cur - 1) * PER_PAGE, cur * PER_PAGE);
 
   return (
     <section className="mt-8">
@@ -240,7 +251,7 @@ export default function Accounts({ token }: { token: string }) {
             </tr>
           </thead>
           <tbody>
-            {rows?.map((o) => (
+            {shown?.map((o) => (
               <tr key={o.id} className="border-b border-border align-top">
                 <td className="py-2">{o.full_name}</td>
                 <td className="py-2 text-ink-muted">{o.contact ?? "—"}</td>
@@ -297,6 +308,47 @@ export default function Accounts({ token }: { token: string }) {
           <p className="py-4 text-sm text-ink-muted">
             ยังไม่มีเจ้าของในระบบ — เพิ่มทีละคนด้านบน หรือนำเข้า CSV
           </p>
+        )}
+        {lastPage > 1 && (
+          <nav
+            aria-label="หน้า"
+            className="mt-6 flex flex-wrap items-center justify-center gap-1 text-sm"
+          >
+            <button
+              onClick={() => setPage(cur - 1)}
+              disabled={cur === 1}
+              className="rounded-md border border-border bg-surface px-3 py-1.5 text-ink-muted transition-colors hover:text-ink disabled:opacity-40 disabled:hover:text-ink-muted"
+            >
+              ก่อนหน้า
+            </button>
+            {pageList(cur, lastPage, PAGE_WINDOW).map((p, i) =>
+              p === "…" ? (
+                <span key={`gap${i}`} className="px-1.5 text-ink-faint">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  aria-current={p === cur ? "page" : undefined}
+                  className={`min-w-9 rounded-md border px-2.5 py-1.5 font-mono transition-colors ${
+                    p === cur
+                      ? "border-ink bg-ink text-surface"
+                      : "border-border bg-surface text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  {p}
+                </button>
+              ),
+            )}
+            <button
+              onClick={() => setPage(cur + 1)}
+              disabled={cur === lastPage}
+              className="rounded-md border border-border bg-surface px-3 py-1.5 text-ink-muted transition-colors hover:text-ink disabled:opacity-40 disabled:hover:text-ink-muted"
+            >
+              ถัดไป
+            </button>
+          </nav>
         )}
       </div>
     </section>
