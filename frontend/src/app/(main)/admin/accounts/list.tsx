@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { AdminOwner, NewAccount } from "@/types";
 import { pageList } from "@/lib/pagination";
 
@@ -9,6 +9,9 @@ const PAGE_WINDOW = 2;
 
 const INPUT =
   "rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none focus-visible:border-info";
+const BTN =
+  "rounded-md border border-border px-2 py-1 text-xs hover:bg-surface-muted disabled:opacity-50";
+const MAX_LEN = 100; // เท่ากับ MAX_PROFILE_LEN ฝั่ง backend
 
 // รหัสผ่านโผล่ครั้งเดียวตอนสร้าง — DB เก็บแต่ hash รีเฟรชหน้าแล้วต้องออกรหัสใหม่
 function downloadCsv(rows: NewAccount[]) {
@@ -41,6 +44,12 @@ export default function Accounts({ token }: { token: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [, startTransition] = useTransition();
+  // แถวที่กำลังแก้ชื่อ/ติดต่อ — แก้ได้ทีละแถว
+  const [draft, setDraft] = useState<{
+    id: number;
+    full_name: string;
+    contact: string;
+  } | null>(null);
 
   const api = useCallback(
     async (path: string, init: RequestInit) => {
@@ -56,25 +65,32 @@ export default function Accounts({ token }: { token: string }) {
   );
 
   const [page, setPage] = useState(1);
+  const [q, setQ] = useState(""); // ค้นชื่อจริง/username — ค้นที่ backend เพราะแบ่งหน้าที่นั่น
+  const seq = useRef(0); // พิมพ์รัว ๆ แล้วคำตอบของคำค้นเก่ามาทีหลัง — ห้ามทับของใหม่
 
   // สร้าง/รีเซ็ตแล้วเรียกซ้ำ = โหลดหน้าเดิมใหม่
   const load = useCallback(() => {
+    const mine = ++seq.current;
     startTransition(async () => {
-      const q = new URLSearchParams({
+      const params = new URLSearchParams({
         limit: String(PER_PAGE),
         offset: String((page - 1) * PER_PAGE),
+        ...(q.trim() ? { q: q.trim() } : {}),
       });
-      const res = await fetch(`/api/admin/owners?${q}`, {
+      const res = await fetch(`/api/admin/owners?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const body = res.ok ? await res.json() : { rows: [], total: 0 };
+      if (mine !== seq.current) return;
       setRows(body.rows);
       setTotal(body.total);
     });
-  }, [token, page]);
+  }, [token, page, q]);
 
+  // ponytail: หน่วง 250ms ให้ช่องค้นหา ไม่ยิงทุกตัวอักษร (แบบเดียวกับหน้าคำขอเพิ่มรถ)
   useEffect(() => {
-    load();
+    const t = setTimeout(load, 250);
+    return () => clearTimeout(t);
   }, [load]);
 
   // ทุกทางที่สร้าง account ลงกองเดียวกัน ปุ่มดาวน์โหลดจะได้ครบทั้งหน้า
@@ -124,6 +140,30 @@ export default function Accounts({ token }: { token: string }) {
       if (r.created.length) downloadCsv(r.created);
       return r.created as NewAccount[];
     });
+  }
+
+  // ชื่อใน /history และ /admin/requests join สดจาก users — บันทึกตรงนี้แล้วเปลี่ยนตามเอง
+  async function saveOwner(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draft) return;
+    setError("");
+    setBusy(true);
+    try {
+      await api(`/api/admin/users/${draft.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: draft.full_name,
+          contact: draft.contact,
+        }),
+      });
+      setDraft(null);
+      load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   const lastPage = Math.max(1, Math.ceil(total / PER_PAGE));
@@ -245,73 +285,175 @@ export default function Accounts({ token }: { token: string }) {
         </ul>
       )}
 
-      <div className="mt-8 overflow-x-auto">
-        <table className="w-full min-w-lg text-sm">
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1); // ผลค้นใหม่เริ่มหน้าแรก — ค้างหน้า 3 ไว้อาจเกินจำนวนหน้าของผลค้น
+          }}
+          placeholder="ค้นชื่อหรือ username"
+          aria-label="ค้นหาเจ้าของด้วยชื่อหรือ username"
+          className={`${INPUT} w-64 max-w-full`}
+        />
+        {rows && <span className="text-xs text-ink-faint">{total} คน</span>}
+      </div>
+
+      <div className="mt-3 overflow-x-auto">
+        {/* ช่องแก้ไขอยู่ในเซลล์ตาราง ห่อ <form> รอบ <tr> ไม่ได้ — ผูกด้วย attribute form= แทน
+            ได้กด Enter เพื่อบันทึก + required ของเบราว์เซอร์มาฟรี */}
+        <form id="edit-owner" onSubmit={saveOwner} />
+        {/* table-fixed + ความกว้างคอลัมน์ตายตัว — กด "แก้ไข" แล้วช่องกรอกโผล่ ตารางไม่ขยับ (auto layout คำนวณใหม่ทั้งตาราง) */}
+        <table className="w-full min-w-lg table-fixed text-sm">
           <thead className="text-left text-xs text-ink-muted">
             <tr className="border-b border-border">
-              <th className="py-2 font-normal">เจ้าของ</th>
-              <th className="py-2 font-normal">ติดต่อ</th>
-              <th className="py-2 font-normal">รถ</th>
+              <th className="w-[30%] py-2 font-normal">เจ้าของ</th>
+              <th className="w-[20%] py-2 font-normal">ติดต่อ</th>
+              <th className="w-12 py-2 font-normal">รถ</th>
               <th className="py-2 font-normal">account</th>
             </tr>
           </thead>
           <tbody>
-            {rows?.map((o) => (
-              <tr key={o.id} className="border-b border-border align-top">
-                <td className="py-2">{o.full_name}</td>
-                <td className="py-2 text-ink-muted">{o.contact ?? "—"}</td>
-                <td className="py-2 text-ink-muted">{o.vehicle_count}</td>
-                <td className="py-2">
-                  {o.username ? (
+            {rows?.map((o) =>
+              draft?.id === o.id ? (
+                <tr key={o.id} className="border-b border-border align-top">
+                  <td className="py-2 pr-2">
+                    <input
+                      form="edit-owner"
+                      required
+                      autoFocus
+                      maxLength={MAX_LEN}
+                      value={draft.full_name}
+                      onChange={(e) =>
+                        setDraft({ ...draft, full_name: e.target.value })
+                      }
+                      onKeyDown={(e) => e.key === "Escape" && setDraft(null)}
+                      placeholder="ชื่อ-นามสกุล"
+                      aria-label="ชื่อ-นามสกุล"
+                      className={`${INPUT} w-full`}
+                    />
+                  </td>
+                  <td className="py-2 pr-2">
+                    <input
+                      form="edit-owner"
+                      maxLength={MAX_LEN}
+                      value={draft.contact}
+                      onChange={(e) =>
+                        setDraft({ ...draft, contact: e.target.value })
+                      }
+                      onKeyDown={(e) => e.key === "Escape" && setDraft(null)}
+                      placeholder="ไม่บังคับ"
+                      aria-label="ติดต่อ"
+                      className={`${INPUT} w-full`}
+                    />
+                  </td>
+                  <td className="py-2 text-ink-muted">{o.vehicle_count}</td>
+                  <td className="py-2">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-ink-muted">
-                        {o.username}
+                      <button
+                        form="edit-owner"
+                        disabled={busy}
+                        className="rounded-md bg-ink px-2 py-1 text-xs text-page hover:opacity-90 disabled:opacity-50"
+                      >
+                        บันทึก
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDraft(null)}
+                        className={BTN}
+                      >
+                        ยกเลิก
+                      </button>
+                    </span>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={o.id} className="border-b border-border align-top">
+                  <td className="py-2 pr-2 break-words">
+                    {o.full_name ?? (
+                      <span
+                        className="text-ink-faint"
+                        title="ยังไม่ได้ตั้งชื่อ — แสดง username แทน"
+                      >
+                        {o.username ?? "—"}
                       </span>
+                    )}
+                  </td>
+                  <td className="py-2 pr-2 break-words text-ink-muted">
+                    {o.contact ?? "—"}
+                  </td>
+                  <td className="py-2 text-ink-muted">{o.vehicle_count}</td>
+                  <td className="py-2">
+                    <span className="flex flex-wrap items-center gap-2">
+                      {o.username && (
+                        <span className="font-mono break-all text-ink-muted">
+                          {o.username}
+                        </span>
+                      )}
                       <button
                         disabled={busy}
                         onClick={() => {
-                          if (
-                            !confirm(
-                              `ออกรหัสใหม่ให้ ${o.username}? รหัสเดิมจะใช้ไม่ได้ทันที`,
-                            )
-                          )
-                            return;
-                          run(async () => [
-                            await api(`/api/admin/users/${o.id}/password`, {
-                              method: "POST",
-                            }),
-                          ]);
+                          setError("");
+                          setDraft({
+                            id: o.id,
+                            full_name: o.full_name ?? "",
+                            contact: o.contact ?? "",
+                          });
                         }}
-                        className="rounded-md border border-border px-2 py-1 text-xs hover:bg-surface-muted disabled:opacity-50"
+                        className={BTN}
                       >
-                        รีเซ็ตรหัส
+                        แก้ไข
                       </button>
+                      {o.username ? (
+                        <button
+                          disabled={busy}
+                          onClick={() => {
+                            if (
+                              !confirm(
+                                `ออกรหัสใหม่ให้ ${o.username}? รหัสเดิมจะใช้ไม่ได้ทันที`,
+                              )
+                            )
+                              return;
+                            run(async () => [
+                              await api(`/api/admin/users/${o.id}/password`, {
+                                method: "POST",
+                              }),
+                            ]);
+                          }}
+                          className={BTN}
+                        >
+                          รีเซ็ตรหัส
+                        </button>
+                      ) : (
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            run(async () => [
+                              await api("/api/admin/users", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ userId: o.id }),
+                              }),
+                            ])
+                          }
+                          className={BTN}
+                        >
+                          สร้าง account
+                        </button>
+                      )}
                     </span>
-                  ) : (
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        run(async () => [
-                          await api("/api/admin/users", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ userId: o.id }),
-                          }),
-                        ])
-                      }
-                      className="rounded-md border border-border px-2 py-1 text-xs hover:bg-surface-muted disabled:opacity-50"
-                    >
-                      สร้าง account
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
         {total === 0 && rows && (
           <p className="py-4 text-sm text-ink-muted">
-            ยังไม่มีเจ้าของในระบบ — เพิ่มทีละคนด้านบน หรือนำเข้า CSV
+            {q.trim()
+              ? `ไม่พบเจ้าของที่ชื่อหรือ username ตรงกับ “${q.trim()}”`
+              : "ยังไม่มีเจ้าของในระบบ — เพิ่มทีละคนด้านบน หรือนำเข้า CSV"}
           </p>
         )}
         {lastPage > 1 && (

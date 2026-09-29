@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth } from "@/auth";
 import PasswordForm from "./form";
 
@@ -17,6 +18,15 @@ export default async function PasswordPage() {
           </p>
         </div>
         <PasswordForm token={session?.user.backendToken ?? ""} />
+        {/* เข้ามาเองจากหน้าบัญชีถึงมีทางกลับ — ถูกบังคับเปลี่ยน (mustChange) ต้องเปลี่ยนก่อนถึงไปไหนได้ */}
+        {!session?.user.mustChange && (
+          <Link
+            href="/account"
+            className="block text-center text-sm text-ink-muted underline-offset-4 hover:text-ink hover:underline"
+          >
+            ← กลับไปบัญชีของฉัน
+          </Link>
+        )}
       </div>
     </main>
   );
