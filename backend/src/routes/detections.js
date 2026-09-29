@@ -185,10 +185,13 @@ router.get("/admin/stats", requireAdmin, async (_req, res) => {
   res.json(rows[0]);
 });
 
-// หน้าแรก: การ์ดสถิติของวันนี้ + กราฟเข้า-ออก — นับใน DB ส่งกลับแค่ตัวเลข ไม่ต้องส่งทุกแถวไปนับที่ browser
-// วันนี้/รายวัน ตัดตามเวลาไทย เหมือน ?date= ของ GET /detections
-// days=1 → กราฟรายชั่วโมงของวันนี้ (k = "00".."23"), days>1 → รายวันย้อนหลังรวมวันนี้ (k = "YYYY-MM-DD")
+// หน้าแรก: การ์ดสถิติ + กราฟเข้า-ออก ของช่วง days วันล่าสุด (รวมวันนี้) — นับใน DB ส่งกลับแค่ตัวเลข
+// ตัดวันตามเวลาไทย เหมือน ?date= ของ GET /detections — days=1 คือตั้งแต่เที่ยงคืนวันนี้
+// chart: days=1 → รายชั่วโมง (k = "00".."23"), days>1 → รายวัน (k = "YYYY-MM-DD")
 // ชั่วโมง/วันที่ไม่มีรถจะไม่มีแถว — หน้าเว็บเติม 0 เอง
+// ส่ง days กลับไปด้วย หน้าเว็บจะได้รู้ว่าตัวเลขชุดนี้เป็นของช่วงไหน
+const SINCE = `created_at >= date_trunc('day', now(), 'Asia/Bangkok')
+                            - make_interval(days => $1::int - 1)`;
 router.get(
   "/detections/overview",
   h(async (req, res) => {
@@ -196,31 +199,32 @@ router.get(
     if (!Number.isInteger(days) || days < 1 || days > 90) {
       return res.status(400).json({ error: "days ต้องเป็นจำนวนเต็ม 1..90" });
     }
-    const [today, chart] = await Promise.all([
+    const [totals, chart] = await Promise.all([
       // อ่านได้ = ไม่ว่างและไม่ใช่ UNKNOWN; บางส่วน = อ่านได้ช่องเดียว (plate_ok <> province_ok คือ XOR)
-      pool.query(`
-        SELECT count(*) FILTER (WHERE direction = 'in')::int  AS dir_in,
-               count(*) FILTER (WHERE direction = 'out')::int AS dir_out,
-               count(*) FILTER (WHERE NOT access_granted)::int AS denied,
-               count(*) FILTER (WHERE plate_ok AND province_ok)::int AS read_ok,
-               count(*) FILTER (WHERE plate_ok <> province_ok)::int AS read_partial
-          FROM (SELECT direction, access_granted,
-                       plate NOT IN ('', 'UNKNOWN') AS plate_ok,
-                       province NOT IN ('', 'UNKNOWN') AS province_ok
-                  FROM detections
-                 WHERE created_at >= date_trunc('day', now(), 'Asia/Bangkok')) d`),
+      pool.query(
+        `SELECT count(*) FILTER (WHERE direction = 'in')::int  AS dir_in,
+                count(*) FILTER (WHERE direction = 'out')::int AS dir_out,
+                count(*) FILTER (WHERE NOT access_granted)::int AS denied,
+                count(*) FILTER (WHERE plate_ok AND province_ok)::int AS read_ok,
+                count(*) FILTER (WHERE plate_ok <> province_ok)::int AS read_partial
+           FROM (SELECT direction, access_granted,
+                        plate NOT IN ('', 'UNKNOWN') AS plate_ok,
+                        province NOT IN ('', 'UNKNOWN') AS province_ok
+                   FROM detections
+                  WHERE ${SINCE}) d`,
+        [days],
+      ),
       pool.query(
         `SELECT to_char(created_at AT TIME ZONE 'Asia/Bangkok', $2) AS k,
                 count(*) FILTER (WHERE direction = 'in')::int  AS dir_in,
                 count(*) FILTER (WHERE direction = 'out')::int AS dir_out
            FROM detections
-          WHERE created_at >= date_trunc('day', now(), 'Asia/Bangkok')
-                              - make_interval(days => $1::int - 1)
+          WHERE ${SINCE}
           GROUP BY k`,
         [days, days === 1 ? "HH24" : "YYYY-MM-DD"],
       ),
     ]);
-    res.json({ today: today.rows[0], chart: chart.rows });
+    res.json({ days, totals: totals.rows[0], chart: chart.rows });
   }),
 );
 
