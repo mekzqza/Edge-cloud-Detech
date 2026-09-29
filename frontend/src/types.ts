@@ -64,6 +64,20 @@ export type NewAccount = {
   password: string;
 };
 
+// เรื่องร้องเรียน — /api/complaints (ของตัวเอง) และ /api/admin/complaints (admin ได้ข้อมูลผู้ร้องเรียนเพิ่ม)
+export type Complaint = {
+  id: number;
+  message: string;
+  status: "open" | "resolved";
+  created_at: string;
+  resolved_at: string | null;
+  // 4 ฟิลด์ล่างมีเฉพาะฝั่ง admin — user_name null = ผู้ใช้ถูกลบไปแล้ว
+  user_name?: string | null;
+  username?: string | null;
+  contact?: string | null;
+  resolved_by_name?: string | null;
+};
+
 // แถวจาก /api/admin/owners — id คือ users.id, username = null คือเจ้าของที่ยังล็อกอินไม่ได้
 export type AdminOwner = {
   id: number;
