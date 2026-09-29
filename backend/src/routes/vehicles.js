@@ -131,16 +131,19 @@ router.get(
         date,
       );
     }
+    // ค้นชื่อเดียวกับที่ตารางแสดง (ชื่อจริง ไม่มีก็ username)
     if (typeof q === "string" && q.trim()) {
-      where("o.full_name ILIKE $?", `%${q.trim()}%`);
+      where("COALESCE(o.full_name, o.username) ILIKE $?", `%${q.trim()}%`);
     }
     if (typeof plate === "string" && plate.trim()) {
       where("v.plate ILIKE $?", `%${plate.trim()}%`);
     }
 
     // ponytail: LIMIT ตายตัวแทน pagination — คำขอค้างพร้อมกันเป็นร้อยค่อยว่ากัน
+    // owner_name: คนที่สมัครผ่าน Google ยังไม่มี full_name จนกว่าจะตั้งเองที่ /account
+    // — ใช้ username แทน ไม่งั้นหน้าเว็บขึ้น "ไม่มีเจ้าของ" ทั้งที่มีเจ้าของ (NULL เหลือแค่รถที่ไม่มีเจ้าของจริง)
     const { rows } = await pool.query(
-      `SELECT v.*, o.full_name AS owner_name, o.contact AS owner_contact,
+      `SELECT v.*, COALESCE(o.full_name, o.username) AS owner_name, o.contact AS owner_contact,
               a.username AS approved_by_name
          FROM vehicles v
          LEFT JOIN users o ON o.id = v.owner_id

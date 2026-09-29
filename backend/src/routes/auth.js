@@ -17,6 +17,7 @@ const h = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 const MIN_PASSWORD_LEN = 8;
 const MIN_USERNAME_LEN = 3;
 const MAX_IMPORT_ROWS = 200;
+const MAX_PROFILE_LEN = 100; // ชื่อ/ช่องทางติดต่อที่ผู้ใช้แก้เอง — body รับได้ถึง 10mb ไม่ตันไว้คือยัดได้เป็นเมก
 
 const str = (v) => (typeof v === "string" && v.trim() !== "" ? v : null);
 
@@ -130,6 +131,51 @@ router.post(
       [hashPassword(next), req.user.id],
     );
     res.json({ ok: true });
+  }),
+);
+
+// บัญชีของตัวเอง — หน้า /account ใช้ดูและแก้ชื่อ/ช่องทางติดต่อ
+// has_password = มีรหัสให้เปลี่ยนไหม (บัญชี Google ล้วนไม่มี) — ไม่ส่ง hash ออกไป
+const ME = `id, username, email, full_name, contact, role,
+            password_hash IS NOT NULL AS has_password`;
+
+router.get(
+  "/me",
+  requireUser,
+  h(async (req, res) => {
+    const {
+      rows: [me],
+    } = await pool.query(`SELECT ${ME} FROM users WHERE id = $1`, [req.user.id]);
+    res.json(me);
+  }),
+);
+
+// แก้ได้แค่ชื่อกับช่องทางติดต่อ — username เป็นคีย์ล็อกอินและอยู่ใน token, role ต้องให้ admin เปลี่ยน
+// ชื่อคือสิ่งที่ admin เห็นตอนอนุมัติรถ เลยห้ามว่าง; contact ว่าง/ไม่ส่ง = ไม่มีช่องทางติดต่อ
+router.patch(
+  "/me",
+  requireUser,
+  h(async (req, res) => {
+    const fullName = str(req.body.full_name)?.trim() ?? null;
+    const contact = str(req.body.contact)?.trim() ?? null;
+    if (!fullName) {
+      return res.status(400).json({ error: "ต้องมีชื่อ-นามสกุล" });
+    }
+    if (
+      fullName.length > MAX_PROFILE_LEN ||
+      (contact?.length ?? 0) > MAX_PROFILE_LEN
+    ) {
+      return res
+        .status(400)
+        .json({ error: `ยาวได้ไม่เกิน ${MAX_PROFILE_LEN} ตัวอักษร` });
+    }
+    const {
+      rows: [me],
+    } = await pool.query(
+      `UPDATE users SET full_name = $1, contact = $2 WHERE id = $3 RETURNING ${ME}`,
+      [fullName, contact, req.user.id],
+    );
+    res.json(me);
   }),
 );
 
