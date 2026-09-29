@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { AdminOwner, NewAccount } from "@/types";
 import { pageList } from "@/lib/pagination";
 
@@ -65,25 +65,32 @@ export default function Accounts({ token }: { token: string }) {
   );
 
   const [page, setPage] = useState(1);
+  const [q, setQ] = useState(""); // ค้นชื่อจริง/username — ค้นที่ backend เพราะแบ่งหน้าที่นั่น
+  const seq = useRef(0); // พิมพ์รัว ๆ แล้วคำตอบของคำค้นเก่ามาทีหลัง — ห้ามทับของใหม่
 
   // สร้าง/รีเซ็ตแล้วเรียกซ้ำ = โหลดหน้าเดิมใหม่
   const load = useCallback(() => {
+    const mine = ++seq.current;
     startTransition(async () => {
-      const q = new URLSearchParams({
+      const params = new URLSearchParams({
         limit: String(PER_PAGE),
         offset: String((page - 1) * PER_PAGE),
+        ...(q.trim() ? { q: q.trim() } : {}),
       });
-      const res = await fetch(`/api/admin/owners?${q}`, {
+      const res = await fetch(`/api/admin/owners?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const body = res.ok ? await res.json() : { rows: [], total: 0 };
+      if (mine !== seq.current) return;
       setRows(body.rows);
       setTotal(body.total);
     });
-  }, [token, page]);
+  }, [token, page, q]);
 
+  // ponytail: หน่วง 250ms ให้ช่องค้นหา ไม่ยิงทุกตัวอักษร (แบบเดียวกับหน้าคำขอเพิ่มรถ)
   useEffect(() => {
-    load();
+    const t = setTimeout(load, 250);
+    return () => clearTimeout(t);
   }, [load]);
 
   // ทุกทางที่สร้าง account ลงกองเดียวกัน ปุ่มดาวน์โหลดจะได้ครบทั้งหน้า
@@ -278,7 +285,22 @@ export default function Accounts({ token }: { token: string }) {
         </ul>
       )}
 
-      <div className="mt-8 overflow-x-auto">
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1); // ผลค้นใหม่เริ่มหน้าแรก — ค้างหน้า 3 ไว้อาจเกินจำนวนหน้าของผลค้น
+          }}
+          placeholder="ค้นชื่อหรือ username"
+          aria-label="ค้นหาเจ้าของด้วยชื่อหรือ username"
+          className={`${INPUT} w-64 max-w-full`}
+        />
+        {rows && <span className="text-xs text-ink-faint">{total} คน</span>}
+      </div>
+
+      <div className="mt-3 overflow-x-auto">
         {/* ช่องแก้ไขอยู่ในเซลล์ตาราง ห่อ <form> รอบ <tr> ไม่ได้ — ผูกด้วย attribute form= แทน
             ได้กด Enter เพื่อบันทึก + required ของเบราว์เซอร์มาฟรี */}
         <form id="edit-owner" onSubmit={saveOwner} />
@@ -429,7 +451,9 @@ export default function Accounts({ token }: { token: string }) {
         </table>
         {total === 0 && rows && (
           <p className="py-4 text-sm text-ink-muted">
-            ยังไม่มีเจ้าของในระบบ — เพิ่มทีละคนด้านบน หรือนำเข้า CSV
+            {q.trim()
+              ? `ไม่พบเจ้าของที่ชื่อหรือ username ตรงกับ “${q.trim()}”`
+              : "ยังไม่มีเจ้าของในระบบ — เพิ่มทีละคนด้านบน หรือนำเข้า CSV"}
           </p>
         )}
         {lastPage > 1 && (

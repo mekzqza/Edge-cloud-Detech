@@ -205,6 +205,10 @@ router.get(
         .status(400)
         .json({ error: "limit (1..100) / offset ไม่ถูกต้อง" });
     }
+    // ?q= ค้นชื่อจริงหรือ username บางส่วนก็ได้ — total นับเฉพาะที่ตรง เลขหน้าจะได้ถูก
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const params = q ? [`%${q}%`] : [];
+    const where = q ? "WHERE u.full_name ILIKE $1 OR u.username ILIKE $1" : "";
     const [page, count] = await Promise.all([
       // u.id ปิดท้าย ORDER BY — ชื่อซ้ำกันแล้วลำดับไม่ตายตัว คนเดียวกันจะโผล่สองหน้า/หายไปจากทุกหน้า
       pool.query(
@@ -212,12 +216,13 @@ router.get(
                 u.username, count(v.id)::int AS vehicle_count
            FROM users u
            LEFT JOIN vehicles v ON v.owner_id = u.id
+          ${where}
           GROUP BY u.id
           ORDER BY u.username IS NOT NULL, COALESCE(u.full_name, u.username), u.id
-          LIMIT $1 OFFSET $2`,
-        [limit, offset],
+          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, limit, offset],
       ),
-      pool.query("SELECT count(*)::int AS total FROM users"),
+      pool.query(`SELECT count(*)::int AS total FROM users u ${where}`, params),
     ]);
     res.json({ rows: page.rows, total: count.rows[0].total });
   }),
