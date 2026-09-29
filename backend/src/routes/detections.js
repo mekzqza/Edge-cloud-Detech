@@ -8,6 +8,9 @@ const { matchVehicle } = require("./detections-match");
 
 const router = Router();
 
+// express 4 ไม่จับ async throw เอง — ไม่ห่อแล้ว query พังจะล้มทั้ง process
+const h = (fn) => (req, res, next) => fn(req, res, next).catch(next);
+
 // โฟลเดอร์เก็บรูป (backend/uploads) — สร้างถ้ายังไม่มี
 const UPLOAD_DIR = path.join(__dirname, "../../uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -181,6 +184,45 @@ router.get("/admin/stats", requireAdmin, async (_req, res) => {
       FROM detections`);
   res.json(rows[0]);
 });
+
+// หน้าแรก: การ์ดสถิติของวันนี้ + กราฟเข้า-ออก — นับใน DB ส่งกลับแค่ตัวเลข ไม่ต้องส่งทุกแถวไปนับที่ browser
+// วันนี้/รายวัน ตัดตามเวลาไทย เหมือน ?date= ของ GET /detections
+// days=1 → กราฟรายชั่วโมงของวันนี้ (k = "00".."23"), days>1 → รายวันย้อนหลังรวมวันนี้ (k = "YYYY-MM-DD")
+// ชั่วโมง/วันที่ไม่มีรถจะไม่มีแถว — หน้าเว็บเติม 0 เอง
+router.get(
+  "/detections/overview",
+  h(async (req, res) => {
+    const days = Number(req.query.days ?? 1);
+    if (!Number.isInteger(days) || days < 1 || days > 90) {
+      return res.status(400).json({ error: "days ต้องเป็นจำนวนเต็ม 1..90" });
+    }
+    const [today, chart] = await Promise.all([
+      // อ่านได้ = ไม่ว่างและไม่ใช่ UNKNOWN; บางส่วน = อ่านได้ช่องเดียว (plate_ok <> province_ok คือ XOR)
+      pool.query(`
+        SELECT count(*) FILTER (WHERE direction = 'in')::int  AS dir_in,
+               count(*) FILTER (WHERE direction = 'out')::int AS dir_out,
+               count(*) FILTER (WHERE NOT access_granted)::int AS denied,
+               count(*) FILTER (WHERE plate_ok AND province_ok)::int AS read_ok,
+               count(*) FILTER (WHERE plate_ok <> province_ok)::int AS read_partial
+          FROM (SELECT direction, access_granted,
+                       plate NOT IN ('', 'UNKNOWN') AS plate_ok,
+                       province NOT IN ('', 'UNKNOWN') AS province_ok
+                  FROM detections
+                 WHERE created_at >= date_trunc('day', now(), 'Asia/Bangkok')) d`),
+      pool.query(
+        `SELECT to_char(created_at AT TIME ZONE 'Asia/Bangkok', $2) AS k,
+                count(*) FILTER (WHERE direction = 'in')::int  AS dir_in,
+                count(*) FILTER (WHERE direction = 'out')::int AS dir_out
+           FROM detections
+          WHERE created_at >= date_trunc('day', now(), 'Asia/Bangkok')
+                              - make_interval(days => $1::int - 1)
+          GROUP BY k`,
+        [days, days === 1 ? "HH24" : "YYYY-MM-DD"],
+      ),
+    ]);
+    res.json({ today: today.rows[0], chart: chart.rows });
+  }),
+);
 
 router.get("/detections/plate/:plate", async (req, res) => {
   const q = String(req.params.plate).trim();
