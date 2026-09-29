@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import NotificationBell from "@/app/NotificationBell";
+import ComplaintWidget from "@/app/ComplaintWidget";
 import Nav from "./Nav";
 import ThemeToggle from "@/app/ThemeToggle";
 
@@ -77,8 +78,15 @@ export default async function MainLayout({
             {session && <NotificationBell token={session.user.backendToken} />}
             <ThemeToggle />
           </header>
-          <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
+          {/* pb-24 เผื่อที่ให้ปุ่มร้องเรียนที่ลอยมุมขวาล่าง — เลื่อนสุดแล้วปุ่มไม่บังเนื้อหาท้ายหน้า */}
+          <main
+            className={`min-w-0 flex-1 p-4 sm:p-6 ${session ? "pb-24 sm:pb-24" : ""}`}
+          >
+            {children}
+          </main>
         </div>
+        {/* ร้องเรียนต้องรู้ว่าใครส่ง — แสดงเฉพาะคนที่ล็อกอินแล้ว */}
+        {session && <ComplaintWidget token={session.user.backendToken} />}
       </div>
     </div>
   );
