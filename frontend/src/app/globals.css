@@ -5,20 +5,24 @@
    ponytail: เขียนซ้ำ 2 ชุดแทน light-dark() — light-dark() ต้อง Safari 17.5+/Firefox 120+
    เครื่องที่เก่ากว่านั้นสีจะหายทั้งหน้า (var ใช้ไม่ได้ = พื้นหลังใส) */
 @theme {
-    /* พื้นผิว */
+    /* พื้นผิว เรียงจากนอกเข้าใน: page (นอกกรอบ dashboard) → canvas (พื้นหน้าหลัก) / sidebar → surface (การ์ด)
+       โทนม่วงอมเทา — surface-muted/border ปรับเป็นโทนเย็นตาม ไม่งั้นเส้นขอบ/hover สีเบจโผล่บนพื้นม่วง */
     --color-surface: #ffffff;
-    --color-surface-muted: #f4f3ee;
-    --color-page: #ecebe3;
-    --color-border: #e4e2d9;
+    --color-surface-muted: #edeef8;
+    --color-page: #eff0fa;
+    --color-canvas: #f5f5fc;
+    --color-sidebar: #fafafc;
+    --color-border: #e3e4f0;
 
     /* ตัวอักษร */
     --color-ink: #1f1e1a;
     --color-ink-muted: #6b6a62;
     --color-ink-faint: #94938b;
 
-    /* สถานะ: สีเข้ม = ตัวอักษร/ไอคอน, -soft = พื้นหลังอ่อน */
+    /* สถานะ: สีเข้ม = ตัวอักษร/ไอคอน, -soft = พื้นหลังอ่อน
+       info-soft = พื้นเมนูที่เลือกอยู่ (sidebar + แท็บในกล่องแจ้งเตือน) */
     --color-info: #185fa5;
-    --color-info-soft: #e6f1fb;
+    --color-info-soft: #e0e7f5;
     --color-success: #0f6e56;
     --color-success-soft: #e1f5ee;
     --color-warn: #854f0b;
@@ -38,7 +42,9 @@
     :root:not([data-theme="light"]) {
         --color-surface: #1c1b17;
         --color-surface-muted: #26241e;
-        --color-page: #141310;
+        --color-page: #0e0d0b;
+        --color-canvas: #141310;
+        --color-sidebar: #1c1b17;
         --color-border: #34322a;
         --color-ink: #eceada;
         --color-ink-muted: #a5a297;
@@ -58,7 +64,9 @@
 :root[data-theme="dark"] {
     --color-surface: #1c1b17;
     --color-surface-muted: #26241e;
-    --color-page: #141310;
+    --color-page: #0e0d0b;
+    --color-canvas: #141310;
+    --color-sidebar: #1c1b17;
     --color-border: #34322a;
     --color-ink: #eceada;
     --color-ink-muted: #a5a297;
