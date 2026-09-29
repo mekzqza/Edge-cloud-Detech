@@ -52,8 +52,9 @@ export default function OverviewPage() {
   // ระหว่างรอคำตอบจะได้ไม่ขึ้นเลขของช่วงเก่าใต้ป้ายของช่วงใหม่ (แค่จางไว้บอกว่ากำลังโหลด)
   const days = overview?.days ?? range;
   const loading = overview?.days !== range;
-  // "วันนี้" ติดคำ ตัวเลขเว้นวรรค → "รถเข้าวันนี้" / "รถเข้า 7 วัน"
-  const period = days === 1 ? "วันนี้" : ` ${days} วัน`;
+  // ต่อท้ายชื่อการ์ด: "วันนี้" ติดคำ ตัวเลขเว้นวรรค → "รถเข้าวันนี้" / "รถเข้า 7 วัน"
+  // ห่อ nowrap ตอน render — การ์ดแคบบนมือถือจะได้ไม่ตัดกลางคำเป็น "วัน / นี้"
+  const period = days === 1 ? "วันนี้" : `${days} วัน`;
   const from = new Date();
   from.setTime(from.getTime() - (days - 1) * 86_400_000);
 
@@ -62,31 +63,31 @@ export default function OverviewPage() {
   const t = overview?.totals;
   const stats = [
     {
-      label: `รถเข้า${period}`,
+      label: "รถเข้า",
       value: t?.dir_in,
       icon: <CarIcon />,
       tone: "",
     },
     {
-      label: `รถออก${period}`,
+      label: "รถออก",
       value: t?.dir_out,
       icon: <CarIcon />,
       tone: "",
     },
     {
-      label: `อ่านป้ายสำเร็จ${period}`,
+      label: "อ่านป้ายสำเร็จ",
       value: t?.read_ok,
       icon: <BadgeCheckIcon />,
       tone: "",
     },
     {
-      label: `รถแปลกปลอม${period}`,
+      label: "รถแปลกปลอม",
       value: t?.denied,
       icon: <AlertIcon />,
       tone: "text-danger",
     },
     {
-      label: `อ่านได้บางส่วน${period}`,
+      label: "อ่านได้บางส่วน",
       value: t?.read_partial,
       icon: <HelpIcon />,
       tone: "",
@@ -170,7 +171,12 @@ export default function OverviewPage() {
           >
             <div className="flex items-center gap-1.5 text-sm text-ink-muted">
               {s.icon}
-              {s.label}
+              {/* span เดียวครอบ — ข้อความหลายชิ้นใน flex จะแยกเป็นหลาย item แล้วโดน gap คั่น */}
+              <span>
+                {s.label}
+                {days > 1 && " "}
+                <span className="whitespace-nowrap">{period}</span>
+              </span>
             </div>
             <div className={`mt-2 text-3xl font-semibold ${s.tone}`}>
               {s.value ?? "—"}
