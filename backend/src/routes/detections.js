@@ -79,7 +79,7 @@ router.post("/detections", async (req, res) => {
 
   const direction = DIRECTION[String(camera ?? "").toUpperCase()] ?? "unknown";
 
-  const match = await matchVehicle(pool, plate, province);
+  const match = await matchVehicle(pool, plate, province, plate_confidence);
 
   // จับคู่รถได้ = เชื่อทะเบียนที่เจ้าของลงทะเบียนไว้มากกว่าที่ OCR อ่านมา (ทั้งป้ายและจังหวัด)
   // เชื่อพอจะเปิดประตูให้แล้ว ก็เชื่อพอจะใช้ค่าของมัน — ค่าดิบไม่หาย อยู่ใน plate_raw
