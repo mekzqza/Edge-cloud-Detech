@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Lightbox from "@/app/Lightbox";
 import type { Notification } from "@/types";
 
 const REASON_TEXT: Record<string, string> = {
@@ -27,6 +28,7 @@ export default function NotificationBell({ token }: { token: string }) {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [count, setCount] = useState(0);
   const [items, setItems] = useState<Notification[] | null>(null);
+  const [zoom, setZoom] = useState<string | null>(null); // รูปที่กำลังดูเต็มจอ
 
   const api = useCallback(
     (path: string, init?: RequestInit) =>
@@ -79,6 +81,9 @@ export default function NotificationBell({ token }: { token: string }) {
 
   return (
     <div className="relative">
+      {/* อยู่นอก <li> — ไม่งั้นคลิกปิดรูปจะ bubble (ตาม React tree) ไปโดนปุ่มของแถวแล้วเปิดรูปซ้ำ
+          <dialog> ขึ้น top layer เอง ไม่โดน overflow ของรายการตัด; ปิดรูปแล้วรายการยังเปิดอยู่ ดูรูปถัดไปต่อได้ */}
+      <Lightbox src={zoom} onClose={() => setZoom(null)} />
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -159,14 +164,21 @@ export default function NotificationBell({ token }: { token: string }) {
               )}
               {items?.map((n) => (
                 <li key={n.id}>
+                  {/* ทั้งแถวเปิดรูป — รูปคือเนื้อหาของการแจ้งเตือน เปิดดูแล้วก็นับว่าอ่านแล้ว */}
                   <button
                     type="button"
-                    onClick={() => markRead(n)}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-muted"
+                    onClick={() => {
+                      setZoom(`/uploads/${n.filename}`);
+                      markRead(n);
+                    }}
+                    title="ดูรูปเต็มจอ"
+                    className="flex w-full cursor-zoom-in items-center gap-3 px-4 py-3 text-left hover:bg-surface-muted"
                   >
+                    {/* lazy: รายการมีได้ถึง 200 แถว ไม่ต้องโหลดรูปเต็มทุกรูปตอนกดกระดิ่ง */}
                     <img
                       src={`/uploads/${n.filename}`}
                       alt=""
+                      loading="lazy"
                       className="h-10 w-14 shrink-0 rounded object-cover"
                     />
                     <div className="min-w-0 flex-1">
