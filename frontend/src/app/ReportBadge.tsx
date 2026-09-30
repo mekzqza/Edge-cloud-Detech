@@ -1,16 +1,16 @@
-import type { Complaint } from "@/types";
+import type { Report } from "@/types";
 
-const STATUS: Record<Complaint["status"], { label: string; className: string }> =
+const STATUS: Record<Report["status"], { label: string; className: string }> =
   {
     open: { label: "รอดำเนินการ", className: "bg-warn-soft text-warn" },
     resolved: { label: "จัดการแล้ว", className: "bg-success-soft text-success" },
   };
 
-// สถานะเรื่องร้องเรียน — ใช้ทั้งหน้าผู้ใช้ (/complain) และหน้า admin (/admin/complain)
-export default function ComplaintBadge({
+// สถานะเรื่องร้องเรียน — ใช้ทั้งหน้าผู้ใช้ (ปุ่มลอย) และหน้า admin (/admin/report)
+export default function ReportBadge({
   status,
 }: {
-  status: Complaint["status"];
+  status: Report["status"];
 }) {
   const s = STATUS[status] ?? STATUS.open;
   return (
@@ -21,7 +21,7 @@ export default function ComplaintBadge({
 }
 
 // "30 ก.ย. 69 08:15"
-export const complaintTime = (iso: string) =>
+export const reportTime = (iso: string) =>
   new Date(iso).toLocaleString("th-TH", {
     day: "numeric",
     month: "short",

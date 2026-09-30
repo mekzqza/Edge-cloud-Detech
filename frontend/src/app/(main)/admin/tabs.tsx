@@ -7,7 +7,7 @@ const tabs = [
   { href: "/admin/requests", label: "คำขอเพิ่มรถ" },
   { href: "/admin/accounts", label: "บัญชีเจ้าของรถ" },
   { href: "/admin/stat", label: "สถิติ" },
-  { href: "/admin/complain", label: "เรื่องร้องเรียน" },
+  { href: "/admin/report", label: "เรื่องร้องเรียน" },
 ];
 
 export default function Tabs() {

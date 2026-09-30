@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import ComplaintBadge, { complaintTime } from "@/app/ComplaintBadge";
-import type { Complaint } from "@/types";
+import ReportBadge, { reportTime } from "@/app/ReportBadge";
+import type { Report } from "@/types";
 
 const MAX_LEN = 2000; // เท่ากับ MAX_MESSAGE_LEN ฝั่ง backend
-const TIP_KEY = "complainTipDismissed";
+const TIP_KEY = "reportTipDismissed";
 
 function Icon({ d }: { d: string[] }) {
   return (
@@ -27,11 +27,11 @@ function Icon({ d }: { d: string[] }) {
 }
 
 // ปุ่มลอยมุมขวาล่างทุกหน้า (แบบปุ่มแชท) — กดแล้วเปิดฟอร์มร้องเรียน + เรื่องที่เคยส่ง
-// admin ดูเรื่องทั้งหมดที่ /admin/complain
-export default function ComplaintWidget({ token }: { token: string }) {
+// admin ดูเรื่องทั้งหมดที่ /admin/report
+export default function ReportWidget({ token }: { token: string }) {
   const [open, setOpen] = useState(false);
   const [tip, setTip] = useState(false); // ฟองชวนกดเหนือปุ่ม — กดปิดแล้วจำไว้ในเครื่อง
-  const [items, setItems] = useState<Complaint[] | null>(null);
+  const [items, setItems] = useState<Report[] | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -59,7 +59,7 @@ export default function ComplaintWidget({ token }: { token: string }) {
   // โหลดเรื่องที่เคยส่งตอนเปิดครั้งแรก — ไม่ยิง API ทุกหน้าที่เปิด
   useEffect(() => {
     if (!open || items) return;
-    fetch("/api/complaints", { headers: { Authorization: `Bearer ${token}` } })
+    fetch("/api/reports", { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : []))
       .then(setItems)
       .catch(() => setItems([]));
@@ -84,7 +84,7 @@ export default function ComplaintWidget({ token }: { token: string }) {
     setBusy(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/complaints", {
+      const res = await fetch("/api/reports", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -199,9 +199,9 @@ export default function ComplaintWidget({ token }: { token: string }) {
                             dateTime={c.created_at}
                             className="text-[11px] text-ink-muted"
                           >
-                            {complaintTime(c.created_at)}
+                            {reportTime(c.created_at)}
                           </time>
-                          <ComplaintBadge status={c.status} />
+                          <ReportBadge status={c.status} />
                         </div>
                         <p className="mt-1 whitespace-pre-wrap break-words">
                           {c.message}

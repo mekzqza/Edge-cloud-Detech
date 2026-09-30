@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
-import ComplaintBadge, { complaintTime } from "@/app/ComplaintBadge";
-import type { Complaint } from "@/types";
+import ReportBadge, { reportTime } from "@/app/ReportBadge";
+import type { Report } from "@/types";
 
 const TABS: { key: string; label: string }[] = [
   { key: "open", label: "รอดำเนินการ" },
@@ -11,8 +11,8 @@ const TABS: { key: string; label: string }[] = [
 ];
 
 // เรื่องร้องเรียนทั้งหมด — เรื่องที่ยังไม่ปิดขึ้นเป็นแท็บแรก
-export default function Complaints({ token }: { token: string }) {
-  const [rows, setRows] = useState<Complaint[] | null>(null);
+export default function Reports({ token }: { token: string }) {
+  const [rows, setRows] = useState<Report[] | null>(null);
   const [status, setStatus] = useState("open");
   const [error, setError] = useState("");
   const [busy, startTransition] = useTransition();
@@ -20,7 +20,7 @@ export default function Complaints({ token }: { token: string }) {
   const load = useCallback(() => {
     startTransition(async () => {
       const q = status ? `?status=${status}` : "";
-      const res = await fetch(`/api/admin/complaints${q}`, {
+      const res = await fetch(`/api/admin/reports${q}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRows(res.ok ? await res.json() : []);
@@ -32,9 +32,9 @@ export default function Complaints({ token }: { token: string }) {
   }, [load]);
 
   // ปิดเรื่อง = resolved (จำว่าใครปิด เมื่อไหร่), เปิดใหม่ = open
-  async function decide(c: Complaint, next: Complaint["status"]) {
+  async function decide(c: Report, next: Report["status"]) {
     setError("");
-    const res = await fetch(`/api/admin/complaints/${c.id}`, {
+    const res = await fetch(`/api/admin/reports/${c.id}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -113,7 +113,7 @@ export default function Complaints({ token }: { token: string }) {
                   dateTime={c.created_at}
                   className="text-xs text-ink-muted"
                 >
-                  {complaintTime(c.created_at)}
+                  {reportTime(c.created_at)}
                 </time>
               </div>
 
@@ -122,11 +122,11 @@ export default function Complaints({ token }: { token: string }) {
               </p>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <ComplaintBadge status={c.status} />
+                <ReportBadge status={c.status} />
                 {c.status === "resolved" && c.resolved_at && (
                   <span className="text-xs text-ink-faint">
                     โดย {c.resolved_by_name ?? "—"} ·{" "}
-                    {complaintTime(c.resolved_at)}
+                    {reportTime(c.resolved_at)}
                   </span>
                 )}
                 <button

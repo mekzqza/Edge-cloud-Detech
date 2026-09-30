@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import NotificationBell from "@/app/NotificationBell";
-import ComplaintWidget from "@/app/ComplaintWidget";
+import ReportWidget from "@/app/ReportWidget";
 import Nav from "./Nav";
 import ThemeToggle from "@/app/ThemeToggle";
 
@@ -86,7 +86,7 @@ export default async function MainLayout({
           </main>
         </div>
         {/* ร้องเรียนต้องรู้ว่าใครส่ง — แสดงเฉพาะคนที่ล็อกอินแล้ว */}
-        {session && <ComplaintWidget token={session.user.backendToken} />}
+        {session && <ReportWidget token={session.user.backendToken} />}
       </div>
     </div>
   );

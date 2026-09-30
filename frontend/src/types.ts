@@ -64,8 +64,8 @@ export type NewAccount = {
   password: string;
 };
 
-// เรื่องร้องเรียน — /api/complaints (ของตัวเอง) และ /api/admin/complaints (admin ได้ข้อมูลผู้ร้องเรียนเพิ่ม)
-export type Complaint = {
+// เรื่องร้องเรียน — /api/reports (ของตัวเอง) และ /api/admin/reports (admin ได้ข้อมูลผู้ร้องเรียนเพิ่ม)
+export type Report = {
   id: number;
   message: string;
   status: "open" | "resolved";

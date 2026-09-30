@@ -12,7 +12,7 @@ const STATUSES = ["open", "resolved"];
 
 // ผู้ใช้ส่งเรื่องร้องเรียน — ใครส่งมาจาก token (ไม่รับ user_id จาก body) เวลาใช้ now() ของ DB
 router.post(
-  "/complaints",
+  "/reports",
   requireUser,
   h(async (req, res) => {
     const message =
@@ -28,7 +28,7 @@ router.post(
     const {
       rows: [row],
     } = await pool.query(
-      `INSERT INTO complaints (user_id, message) VALUES ($1, $2)
+      `INSERT INTO reports (user_id, message) VALUES ($1, $2)
        RETURNING id, message, status, created_at, resolved_at`,
       [req.user.id, message],
     );
@@ -38,12 +38,12 @@ router.post(
 
 // เรื่องของตัวเอง — ไว้ดูว่าจัดการแล้วหรือยัง
 router.get(
-  "/complaints",
+  "/reports",
   requireUser,
   h(async (req, res) => {
     const { rows } = await pool.query(
       `SELECT id, message, status, created_at, resolved_at
-         FROM complaints WHERE user_id = $1
+         FROM reports WHERE user_id = $1
         ORDER BY created_at DESC LIMIT 50`,
       [req.user.id],
     );
@@ -55,7 +55,7 @@ router.get(
 // ชื่อ join สดจาก users (แก้ชื่อที่ไหนก็เปลี่ยนตาม), user_name NULL = ผู้ใช้ถูกลบไปแล้ว
 // ponytail: LIMIT ตายตัวแทน pagination — เรื่องค้างเป็นร้อยพร้อมกันค่อยทำแบ่งหน้า
 router.get(
-  "/admin/complaints",
+  "/admin/reports",
   requireAdmin,
   h(async (req, res) => {
     const status = STATUSES.includes(req.query.status) ? req.query.status : null;
@@ -63,7 +63,7 @@ router.get(
       `SELECT c.id, c.message, c.status, c.created_at, c.resolved_at,
               COALESCE(u.full_name, u.username) AS user_name, u.username, u.contact,
               COALESCE(r.full_name, r.username) AS resolved_by_name
-         FROM complaints c
+         FROM reports c
          LEFT JOIN users u ON u.id = c.user_id
          LEFT JOIN users r ON r.id = c.resolved_by
         ${status ? "WHERE c.status = $1" : ""}
@@ -77,7 +77,7 @@ router.get(
 
 // admin ปิดเรื่อง (resolved) / เปิดใหม่ (open) — ปิดแล้วจำว่าใครปิด เมื่อไหร่, เปิดใหม่ล้างทิ้ง
 router.patch(
-  "/admin/complaints/:id",
+  "/admin/reports/:id",
   requireAdmin,
   h(async (req, res) => {
     const id = Number(req.params.id);
@@ -91,7 +91,7 @@ router.patch(
     const {
       rows: [row],
     } = await pool.query(
-      `UPDATE complaints
+      `UPDATE reports
           SET status = $1,
               resolved_by = CASE WHEN $1 = 'resolved' THEN $2::int END,
               resolved_at = CASE WHEN $1 = 'resolved' THEN now() END

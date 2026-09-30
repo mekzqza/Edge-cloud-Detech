@@ -140,12 +140,22 @@ async function initDb() {
       PRIMARY KEY (notification_id, user_id)
     )`);
 
-  // เรื่องร้องเรียนจากผู้ใช้ — admin ดูที่ /admin/complain ว่าใครร้องเรียน เมื่อไหร่ เรื่องอะไร
+  // DB เก่ายังชื่อ complaints — rename ทับที่ ข้อมูลเดิมอยู่ครบ (sequence ผูกด้วย OID ไม่พัง)
+  await pool.query(`
+    DO $$ BEGIN
+      IF to_regclass('complaints') IS NOT NULL AND to_regclass('reports') IS NULL THEN
+        ALTER TABLE complaints RENAME TO reports;
+        ALTER SEQUENCE IF EXISTS complaints_id_seq RENAME TO reports_id_seq;
+        ALTER INDEX IF EXISTS complaints_created_at_idx RENAME TO reports_created_at_idx;
+      END IF;
+    END $$`);
+
+  // เรื่องร้องเรียนจากผู้ใช้ — admin ดูที่ /admin/report ว่าใครร้องเรียน เมื่อไหร่ เรื่องอะไร
   // ชื่อผู้ร้องเรียน join สดจาก users ไม่เก็บสำเนา (แก้ชื่อแล้วเปลี่ยนตาม เหมือน /history)
   // user_id ON DELETE SET NULL: ลบ user แล้วเรื่องร้องเรียนยังอยู่เป็นประวัติ
   // status/resolved_*: admin ปิดเรื่องแล้วรู้ว่าใครปิด เมื่อไหร่
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS complaints (
+    CREATE TABLE IF NOT EXISTS reports (
       id          serial PRIMARY KEY,
       user_id     integer REFERENCES users(id) ON DELETE SET NULL,
       message     text NOT NULL,
@@ -155,7 +165,7 @@ async function initDb() {
       created_at  timestamptz NOT NULL DEFAULT now()
     )`);
   await pool.query(`
-    CREATE INDEX IF NOT EXISTS complaints_created_at_idx ON complaints (created_at DESC)`);
+    CREATE INDEX IF NOT EXISTS reports_created_at_idx ON reports (created_at DESC)`);
 
   const adminEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
   if (!adminEmail) throw new Error("ADMIN_EMAIL is not set");
