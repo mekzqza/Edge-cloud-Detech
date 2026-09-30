@@ -112,7 +112,7 @@ export default function ReportWidget({ token }: { token: string }) {
       {open && (
         <button
           type="button"
-          aria-label="ปิดหน้าต่างร้องเรียน"
+          aria-label="ปิดหน้าต่างรายงาน"
           onClick={() => setOpen(false)}
           className="fixed inset-0 z-30 cursor-default"
         />
@@ -122,12 +122,12 @@ export default function ReportWidget({ token }: { token: string }) {
         {open && (
           <section
             role="dialog"
-            aria-label="แจ้งเรื่องร้องเรียน"
+            aria-label="แจ้งรายงาน"
             className="flex max-h-[min(36rem,calc(100dvh-7rem))] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg"
           >
             <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
               <div>
-                <h2 className="font-medium">แจ้งเรื่องร้องเรียน</h2>
+                <h2 className="font-medium">แจ้งรายงาน</h2>
                 <p className="text-xs text-ink-faint">
                   ผู้ดูแลระบบจะเห็นชื่อคุณและเวลาที่ส่ง
                 </p>
@@ -155,7 +155,7 @@ export default function ReportWidget({ token }: { token: string }) {
                     setMsg(null);
                   }}
                   placeholder="เช่น วันนี้ 08:15 ประตูขาเข้าไม่เปิดให้รถ กข 1234"
-                  aria-label="รายละเอียดเรื่องร้องเรียน"
+                  aria-label="รายละเอียดการรายงาน"
                   className="block w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                 />
                 <div className="flex items-center gap-3">
@@ -245,8 +245,8 @@ export default function ReportWidget({ token }: { token: string }) {
           type="button"
           onClick={toggle}
           aria-expanded={open}
-          aria-label={open ? "ปิดหน้าต่างร้องเรียน" : "แจ้งเรื่องร้องเรียน"}
-          title="แจ้งเรื่องร้องเรียน"
+          aria-label={open ? "ปิดหน้าต่างรายงาน" : "แจ้งรายงาน"}
+          title="แจ้งรายงาน"
           className="flex h-14 w-14 items-center justify-center rounded-full bg-info text-surface shadow-lg transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink motion-reduce:transition-none motion-reduce:hover:scale-100"
         >
           <Icon

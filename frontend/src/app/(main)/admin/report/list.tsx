@@ -52,7 +52,7 @@ export default function Reports({ token }: { token: string }) {
   return (
     <section className="mt-8">
       <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border pb-4">
-        <h2 className="text-lg font-medium">เรื่องร้องเรียน</h2>
+        <h2 className="text-lg font-medium">การรายงาน</h2>
         <div className="inline-flex rounded-md border border-border bg-surface p-0.5 text-sm">
           {TABS.map((t) => (
             <button
@@ -81,7 +81,7 @@ export default function Reports({ token }: { token: string }) {
         <p className="mt-8 text-sm text-ink-faint">กำลังโหลด…</p>
       ) : rows.length === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">
-          {status === "open" ? "ไม่มีเรื่องที่รอดำเนินการ" : "ไม่มีเรื่องร้องเรียน"}
+          {status === "open" ? "ไม่มีเรื่องที่รอดำเนินการ" : "ไม่มีการรายงาน"}
         </p>
       ) : (
         <ul className={`mt-4 space-y-3 ${busy ? "opacity-50" : ""}`}>
