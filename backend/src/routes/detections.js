@@ -165,26 +165,6 @@ router.get("/detections", async (req, res) => {
   res.json({ rows: redact(page.rows, admin), ...counts.rows[0] });
 });
 
-// ภาพรวมทั้งตาราง detections สำหรับหน้า /admin/stat
-// avg ข้ามแถวที่เป็น NULL เอง (Pi รุ่นเก่าไม่ส่ง conf ย่อย) — ส่ง *_n กลับไปด้วยจะได้รู้ว่าเฉลี่ยจากกี่แถว
-// ::float8 เพราะ pg คืน numeric เป็น string
-router.get("/admin/stats", requireAdmin, async (_req, res) => {
-  const { rows } = await pool.query(`
-    SELECT count(*)::int AS total,
-           avg(confidence)::float8 AS confidence,
-           avg(plate_confidence)::float8 AS plate_confidence,
-           count(plate_confidence)::int AS plate_confidence_n,
-           avg(province_confidence)::float8 AS province_confidence,
-           count(province_confidence)::int AS province_confidence_n,
-           count(*) FILTER (WHERE access_granted)::int AS granted,
-           count(*) FILTER (WHERE plate <> plate_raw)::int AS corrected,
-           count(*) FILTER (WHERE direction = 'in')::int AS dir_in,
-           count(*) FILTER (WHERE direction = 'out')::int AS dir_out,
-           count(*) FILTER (WHERE direction = 'unknown')::int AS dir_unknown
-      FROM detections`);
-  res.json(rows[0]);
-});
-
 // หน้าแรก: การ์ดสถิติ + กราฟเข้า-ออก ของช่วง days วันล่าสุด (รวมวันนี้) — นับใน DB ส่งกลับแค่ตัวเลข
 // ตัดวันตามเวลาไทย เหมือน ?date= ของ GET /detections — days=1 คือตั้งแต่เที่ยงคืนวันนี้
 // chart: days=1 → รายชั่วโมง (k = "00".."23"), days>1 → รายวัน (k = "YYYY-MM-DD")
@@ -225,6 +205,37 @@ router.get(
       ),
     ]);
     res.json({ days, totals: totals.rows[0], chart: chart.rows });
+  }),
+);
+
+// สถิติสำหรับหน้า /admin/stat — ?days= ตัดช่วงแบบเดียวกับ overview, ไม่ส่ง = ทั้งตาราง
+// avg ข้ามแถวที่เป็น NULL เอง (Pi รุ่นเก่าไม่ส่ง conf ย่อย) — ส่ง *_n กลับไปด้วยจะได้รู้ว่าเฉลี่ยจากกี่แถว
+// ::float8 เพราะ pg คืน numeric เป็น string
+router.get(
+  "/admin/stats",
+  requireAdmin,
+  h(async (req, res) => {
+    const days = req.query.days == null ? null : Number(req.query.days);
+    if (days !== null && (!Number.isInteger(days) || days < 1 || days > 90)) {
+      return res.status(400).json({ error: "days ต้องเป็นจำนวนเต็ม 1..90" });
+    }
+    const { rows } = await pool.query(
+      `SELECT count(*)::int AS total,
+              avg(confidence)::float8 AS confidence,
+              avg(plate_confidence)::float8 AS plate_confidence,
+              count(plate_confidence)::int AS plate_confidence_n,
+              avg(province_confidence)::float8 AS province_confidence,
+              count(province_confidence)::int AS province_confidence_n,
+              count(*) FILTER (WHERE access_granted)::int AS granted,
+              count(*) FILTER (WHERE plate <> plate_raw)::int AS corrected,
+              count(*) FILTER (WHERE direction = 'in')::int AS dir_in,
+              count(*) FILTER (WHERE direction = 'out')::int AS dir_out,
+              count(*) FILTER (WHERE direction = 'unknown')::int AS dir_unknown
+         FROM detections
+        WHERE $1::int IS NULL OR ${SINCE}`,
+      [days],
+    );
+    res.json({ days, ...rows[0] });
   }),
 );
 
